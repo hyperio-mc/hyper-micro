@@ -150,20 +150,20 @@ adminRoutes.get('/databases', async (c) => {
 });
 
 /**
- * List all storage files.
+ * List all storage buckets with file counts.
  * 
  * @route GET /api/admin/storage
- * @returns {Object} 200 - { files: Array<{ name, bucket, size }> }
+ * @returns {Object} 200 - { ok: true, buckets: Array<{ name, fileCount, totalSize }> }
  */
 adminRoutes.get('/storage', async (c) => {
   try {
     const storagePath = getStoragePath();
-    const files: Array<{ name: string; bucket: string; size: number }> = [];
+    const buckets: Array<{ name: string; fileCount: number; totalSize: number }> = [];
     
     if (!existsSync(storagePath)) {
       return c.json({
         ok: true,
-        files: [],
+        buckets: [],
       });
     }
     
@@ -171,28 +171,235 @@ adminRoutes.get('/storage', async (c) => {
     
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const bucket = entry.name;
-        const bucketPath = path.join(storagePath, bucket);
+        const bucketName = entry.name;
+        const bucketPath = path.join(storagePath, bucketName);
         
-        await walkDirWithPaths(bucketPath, '', (filePath, size) => {
-          files.push({
-            name: filePath,
-            bucket,
-            size,
-          });
+        let fileCount = 0;
+        let totalSize = 0;
+        
+        await walkDir(bucketPath, (size) => {
+          fileCount++;
+          totalSize += size;
+        });
+        
+        buckets.push({
+          name: bucketName,
+          fileCount,
+          totalSize,
         });
       }
     }
+    
+    // Sort by name
+    buckets.sort((a, b) => a.name.localeCompare(b.name));
+    
+    return c.json({
+      ok: true,
+      buckets,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list storage';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * List files in a bucket.
+ * 
+ * @route GET /api/admin/storage/:bucket
+ * @returns {Object} 200 - { ok: true, bucket: string, files: Array<{ name, size, modified }> }
+ */
+adminRoutes.get('/storage/:bucket', async (c) => {
+  try {
+    const bucket = c.req.param('bucket');
+    const storagePath = getStoragePath();
+    const bucketPath = path.join(storagePath, bucket);
+    
+    if (!existsSync(bucketPath)) {
+      return c.json({
+        ok: false,
+        error: `Bucket '${bucket}' not found`,
+      }, 404);
+    }
+    
+    const files: Array<{ name: string; size: number; modified: string }> = [];
+    
+    await walkDirWithStats(bucketPath, '', (filePath, size, modified) => {
+      files.push({
+        name: filePath,
+        size,
+        modified,
+      });
+    });
     
     // Sort by name
     files.sort((a, b) => a.name.localeCompare(b.name));
     
     return c.json({
       ok: true,
+      bucket,
       files,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to list storage';
+    const message = err instanceof Error ? err.message : 'Failed to list bucket files';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Download a file from a bucket.
+ * 
+ * @route GET /api/admin/storage/:bucket/:key
+ * @returns {Binary} File content
+ */
+adminRoutes.get('/storage/:bucket/:key', async (c) => {
+  try {
+    const bucket = c.req.param('bucket');
+    const key = decodeURIComponent(c.req.param('key'));
+    const storagePath = getStoragePath();
+    
+    // Sanitize bucket and key to prevent path traversal
+    const safeBucket = bucket.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeKey = key.replace(/[^a-zA-Z0-9_.\/-]/g, '_');
+    const filePath = path.join(storagePath, safeBucket, safeKey);
+    
+    // Ensure path is within storage
+    const resolvedPath = path.resolve(filePath);
+    const resolvedStorage = path.resolve(storagePath);
+    if (!resolvedPath.startsWith(resolvedStorage)) {
+      return c.json({
+        ok: false,
+        error: 'Invalid path',
+      }, 400);
+    }
+    
+    if (!existsSync(filePath)) {
+      return c.json({
+        ok: false,
+        error: `File '${key}' not found`,
+      }, 404);
+    }
+    
+    const stats = await stat(filePath);
+    
+    c.header('Content-Type', 'application/octet-stream');
+    c.header('Content-Length', stats.size.toString());
+    c.header('Content-Disposition', `attachment; filename="${path.basename(key)}"`);
+    
+    const { readFile } = await import('node:fs/promises');
+    const content = await readFile(filePath);
+    
+    return c.body(content);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to download file';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Upload a file to a bucket.
+ * 
+ * @route PUT /api/admin/storage/:bucket/:key
+ * @body Binary file content
+ * @returns {Object} 201 - { ok: true, key: string, size: number }
+ */
+adminRoutes.put('/storage/:bucket/:key', async (c) => {
+  try {
+    const bucket = c.req.param('bucket');
+    const key = decodeURIComponent(c.req.param('key'));
+    const storagePath = getStoragePath();
+    
+    // Sanitize bucket and key
+    const safeBucket = bucket.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeKey = key.replace(/[^a-zA-Z0-9_.\/-]/g, '_');
+    const filePath = path.join(storagePath, safeBucket, safeKey);
+    
+    // Ensure path is within storage
+    const resolvedPath = path.resolve(filePath);
+    const resolvedStorage = path.resolve(storagePath);
+    if (!resolvedPath.startsWith(resolvedStorage)) {
+      return c.json({
+        ok: false,
+        error: 'Invalid path',
+      }, 400);
+    }
+    
+    // Ensure bucket directory exists
+    const bucketDir = path.dirname(filePath);
+    await import('node:fs/promises').then(fs => fs.mkdir(bucketDir, { recursive: true }));
+    
+    // Write file
+    const buffer = await c.req.arrayBuffer();
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(filePath, Buffer.from(buffer));
+    
+    const stats = await stat(filePath);
+    
+    return c.json({
+      ok: true,
+      key,
+      size: stats.size,
+    }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to upload file';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Delete a file from a bucket.
+ * 
+ * @route DELETE /api/admin/storage/:bucket/:key
+ * @returns {Object} 200 - { ok: true }
+ */
+adminRoutes.delete('/storage/:bucket/:key', async (c) => {
+  try {
+    const bucket = c.req.param('bucket');
+    const key = decodeURIComponent(c.req.param('key'));
+    const storagePath = getStoragePath();
+    
+    // Sanitize bucket and key
+    const safeBucket = bucket.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeKey = key.replace(/[^a-zA-Z0-9_.\/-]/g, '_');
+    const filePath = path.join(storagePath, safeBucket, safeKey);
+    
+    // Ensure path is within storage
+    const resolvedPath = path.resolve(filePath);
+    const resolvedStorage = path.resolve(storagePath);
+    if (!resolvedPath.startsWith(resolvedStorage)) {
+      return c.json({
+        ok: false,
+        error: 'Invalid path',
+      }, 400);
+    }
+    
+    if (!existsSync(filePath)) {
+      return c.json({
+        ok: false,
+        error: `File '${key}' not found`,
+      }, 404);
+    }
+    
+    const { unlink } = await import('node:fs/promises');
+    await unlink(filePath);
+    
+    return c.json({
+      ok: true,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to delete file';
     return c.json({
       ok: false,
       error: message,
@@ -669,6 +876,29 @@ async function walkDirWithPaths(
       onFile(relativePath, stats.size);
     } else if (entry.isDirectory()) {
       await walkDirWithPaths(fullPath, relativePath, onFile);
+    }
+  }
+}
+
+/**
+ * Walk a directory and call callback for each file with its path, size, and modified time.
+ */
+async function walkDirWithStats(
+  dir: string, 
+  basePath: string, 
+  onFile: (filePath: string, size: number, modified: string) => void
+): Promise<void> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+    
+    if (entry.isFile()) {
+      const stats = await stat(fullPath);
+      onFile(relativePath, stats.size, stats.mtime.toISOString());
+    } else if (entry.isDirectory()) {
+      await walkDirWithStats(fullPath, relativePath, onFile);
     }
   }
 }
