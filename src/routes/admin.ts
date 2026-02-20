@@ -840,7 +840,22 @@ adminRoutes.delete('/dbs/:name', async (c) => {
 // ============================================
 
 /**
- * Walk a directory and call callback for each file with its size.
+ * Recursively walks a directory tree and calls the callback for each file found.
+ * Used internally for calculating storage statistics.
+ * 
+ * @param {string} dir - Directory path to walk
+ * @param {(size: number) => void} onFile - Callback invoked with each file's size in bytes
+ * @returns {Promise<void>} Resolves when all files have been processed
+ * @internal
+ * 
+ * @example
+ * ```typescript
+ * let totalSize = 0;
+ * await walkDir('/path/to/storage', (size) => {
+ *   totalSize += size;
+ * });
+ * console.log(`Total size: ${totalSize} bytes`);
+ * ```
  */
 async function walkDir(dir: string, onFile: (size: number) => void): Promise<void> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -858,7 +873,14 @@ async function walkDir(dir: string, onFile: (size: number) => void): Promise<voi
 }
 
 /**
- * Walk a directory and call callback for each file with its path and size.
+ * Recursively walks a directory tree and calls the callback for each file
+ * with its relative path and size.
+ * 
+ * @param {string} dir - Directory path to walk
+ * @param {string} basePath - Base path to strip from file paths (for relative paths)
+ * @param {(filePath: string, size: number) => void} onFile - Callback with file's relative path and size
+ * @returns {Promise<void>} Resolves when all files have been processed
+ * @internal
  */
 async function walkDirWithPaths(
   dir: string, 
@@ -881,7 +903,15 @@ async function walkDirWithPaths(
 }
 
 /**
- * Walk a directory and call callback for each file with its path, size, and modified time.
+ * Recursively walks a directory tree and calls the callback for each file
+ * with its relative path, size, and last modified timestamp.
+ * Used for listing storage bucket contents with metadata.
+ * 
+ * @param {string} dir - Directory path to walk
+ * @param {string} basePath - Base path to strip from file paths (for relative paths)
+ * @param {(filePath: string, size: number, modified: string) => void} onFile - Callback with file info
+ * @returns {Promise<void>} Resolves when all files have been processed
+ * @internal
  */
 async function walkDirWithStats(
   dir: string, 
@@ -904,7 +934,20 @@ async function walkDirWithStats(
 }
 
 /**
- * Format bytes to human-readable string.
+ * Converts a byte count to a human-readable string with appropriate units.
+ * Automatically selects the best unit (B, KB, MB, GB, TB) based on size.
+ * 
+ * @param {number} bytes - Number of bytes to format
+ * @returns {string} Human-readable string (e.g., "1.5 MB", "256 B")
+ * @internal
+ * 
+ * @example
+ * ```typescript
+ * formatBytes(0);        // "0 B"
+ * formatBytes(1024);     // "1 KB"
+ * formatBytes(1536);     // "1.5 KB"
+ * formatBytes(1048576);  // "1 MB"
+ * ```
  */
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
