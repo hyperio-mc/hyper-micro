@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | hyper-micro</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --bg-primary: #0a0a0b;
+      --bg-secondary: #18181b;
+      --bg-tertiary: #1f1f23;
+      --border-color: #27272a;
+      --text-primary: #fff;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      min-height: 100vh;
+    }
+    
+    /* Layout */
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      z-index: 100;
+      transition: transform 0.3s ease;
+    }
+    
+    .sidebar-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    
+    .logo span {
+      color: var(--accent);
+    }
+    
+    .sidebar-nav {
+      flex: 1;
+      padding: 1rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+    
+    .nav-item:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+    
+    .nav-item.active {
+      color: var(--text-primary);
+      background: rgba(99, 102, 241, 0.1);
+      border-left-color: var(--accent);
+    }
+    
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      opacity: 0.7;
+    }
+    
+    .nav-item.active .nav-icon {
+      opacity: 1;
+    }
+    
+    .sidebar-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+    
+    .user-details {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .user-email {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .logout-btn {
+      width: 100%;
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .logout-btn:hover {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    
+    /* Mobile sidebar toggle */
+    .sidebar-toggle {
+      display: none;
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      z-index: 101;
+      width: 40px;
+      height: 40px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .sidebar-toggle svg {
+      color: var(--text-secondary);
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 99;
+    }
+    
+    /* Main content */
+    .main-content {
+      flex: 1;
+      margin-left: 240px;
+      min-height: 100vh;
+    }
+    
+    .content-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+    }
+    
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .page-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    
+    .content-body {
+      padding: 2rem;
+    }
+    
+    /* Tab content panels */
+    .tab-panel {
+      display: none;
+    }
+    
+    .tab-panel.active {
+      display: block;
+    }
+    
+    /* Stats cards - Overview */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    
+    .stat-change {
+      font-size: 0.75rem;
+      color: var(--success);
+      margin-top: 0.5rem;
+    }
+    
+    /* Section */
+    .section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+    }
+    
+    .section-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .section-body {
+      padding: 1.5rem;
+    }
+    
+    /* Table */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .data-table th,
+    .data-table td {
+      padding: 0.875rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .data-table th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    
+    .data-table td {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+    
+    .data-table tbody tr:hover {
+      background: var(--bg-tertiary);
+    }
+    
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    
+    /* Buttons */
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: var(--text-primary);
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    
+    /* Form elements */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-input {
+      width: 100%;
+      max-width: 400px;
+      padding: 0.625rem 0.875rem;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    /* Storage browser */
+    .folder-list {
+      list-style: none;
+    }
+    
+    .folder-item {
+      padding: 0.5rem 0;
+    }
+    
+    .folder-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+    
+    .folder-link:hover {
+      color: var(--text-primary);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar-toggle {
+        display: flex;
+      }
+      
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      
+      .sidebar-overlay.visible {
+        display: block;
+      }
+      
+      .main-content {
+        margin-left: 0;
+      }
+      
+      .content-header {
+        padding: 1rem 1.5rem;
+        padding-left: 4rem;
+      }
+      
+      .content-body {
+        padding: 1rem;
+      }
+    }
+    
+    /* Loading state */
+    .loading-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+    }
+    
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border-color);
+      border-radius: 50%;
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+    }
+    
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <!-- Mobile sidebar toggle -->
+  <button class="sidebar-toggle" id="sidebarToggle">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
+  
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="/" class="logo">hyper<span>-micro</span></a>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a href="#overview" class="nav-item active" data-tab="overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Overview
+        </a>
+        <a href="#databases" class="nav-item" data-tab="databases">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+          </svg>
+          Databases
+        </a>
+        <a href="#storage" class="nav-item" data-tab="storage">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Storage
+        </a>
+        <a href="#settings" class="nav-item" data-tab="settings">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Settings
+        </a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div class="user-details">
+            <div class="user-email" id="userEmail">admin@example.com</div>
+          </div>
+        </div>
+        <button class="logout-btn" id="logoutBtn">Sign out</button>
+      </div>
+    </aside>
+    
+    <!-- Main content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="content-header">
+        <h1 class="page-title" id="pageTitle">Overview</h1>
+        <p class="page-subtitle" id="pageSubtitle">Server statistics and health</p>
+      </header>
+      
+      <!-- Tab content -->
+      <div class="content-body">
+        <!-- Overview Tab -->
+        <div class="tab-panel active" id="tab-overview">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Databases</div>
+              <div class="stat-value" id="statDbs">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Storage Usage</div>
+              <div class="stat-value" id="statStorage">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Uptime</div>
+              <div class="stat-value" id="statUptime">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">API Keys</div>
+              <div class="stat-value" id="statApiKeys">-</div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Server Info</h3>
+            </div>
+            <div class="section-body">
+              <table class="data-table">
+                <tbody>
+                  <tr>
+                    <td style="width: 200px; color: var(--text-muted);">Version</td>
+                    <td id="infoVersion">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">Node.js</td>
+                    <td id="infoNode">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">Environment</td>
+                    <td id="infoEnv">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">LMDB Path</td>
+                    <td id="infoLmdb">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">Storage Path</td>
+                    <td id="infoStoragePath">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Databases Tab -->
+        <div class="tab-panel" id="tab-databases">
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Databases</h3>
+            </div>
+            <div class="section-body">
+              <div class="loading-spinner" id="dbLoading">
+                <div class="spinner"></div>
+              </div>
+              <table class="data-table" id="dbTable" style="display: none;">
+                <thead>
+                  <tr>
+                    <th>Database</th>
+                    <th>Keys</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dbTableBody">
+                </tbody>
+              </table>
+              <div class="empty-state" id="dbEmpty" style="display: none;">
+                <div class="empty-state-icon">📦</div>
+                <p>No databases found</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Storage Tab -->
+        <div class="tab-panel" id="tab-storage">
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Storage Browser</h3>
+            </div>
+            <div class="section-body">
+              <div class="loading-spinner" id="storageLoading">
+                <div class="spinner"></div>
+              </div>
+              <ul class="folder-list" id="storageList" style="display: none;">
+              </ul>
+              <div class="empty-state" id="storageEmpty" style="display: none;">
+                <div class="empty-state-icon">📁</div>
+                <p>No files in storage</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Settings Tab -->
+        <div class="tab-panel" id="tab-settings">
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Admin Account</h3>
+            </div>
+            <div class="section-body">
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" id="settingsEmail" disabled>
+              </div>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">
+                Admin credentials are configured via environment variables.
+              </p>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Security</h3>
+            </div>
+            <div class="section-body">
+              <button class="btn btn-secondary" id="clearTokenBtn">Clear Saved Token</button>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                This will sign you out and require re-authentication.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <script>
+    // Check authentication
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      window.location.href = '/login';
+    }
+    
+    // Tab navigation
+    const navItems = document.querySelectorAll('.nav-item[data-tab]');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    
+    const titles = {
+      overview: { title: 'Overview', subtitle: 'Server statistics and health' },
+      databases: { title: 'Databases', subtitle: 'Browse and manage databases' },
+      storage: { title: 'Storage', subtitle: 'File storage browser' },
+      settings: { title: 'Settings', subtitle: 'Configure your preferences' },
+    };
+    
+    function switchTab(tab) {
+      // Update nav
+      navItems.forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tab);
+      });
+      
+      // Update panels
+      tabPanels.forEach(panel => {
+        panel.classList.toggle('active', panel.id === `tab-${tab}`);
+      });
+      
+      // Update header
+      if (titles[tab]) {
+        pageTitle.textContent = titles[tab].title;
+        pageSubtitle.textContent = titles[tab].subtitle;
+      }
+      
+      // Update URL hash
+      window.location.hash = tab;
+      
+      // Load data for tab
+      if (tab === 'overview') loadOverview();
+      if (tab === 'databases') loadDatabases();
+      if (tab === 'storage') loadStorage();
+    }
+    
+    navItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchTab(item.dataset.tab);
+        closeSidebar();
+      });
+    });
+    
+    // Handle initial hash
+    const hash = window.location.hash.slice(1);
+    if (hash && titles[hash]) {
+      switchTab(hash);
+    }
+    
+    // Mobile sidebar
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    
+    function closeSidebar() {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('visible');
+    }
+    
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      sidebarOverlay.classList.toggle('visible');
+    });
+    
+    sidebarOverlay.addEventListener('click', closeSidebar);
+    
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('tokenExpires');
+      window.location.href = '/login';
+    });
+    
+    document.getElementById('clearTokenBtn').addEventListener('click', () => {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('tokenExpires');
+      window.location.href = '/login';
+    });
+    
+    // API helper
+    async function apiGet(endpoint) {
+      const res = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (res.status === 401) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('tokenExpires');
+        window.location.href = '/login';
+        return null;
+      }
+      return res.json();
+    }
+    
+    // Load overview data
+    async function loadOverview() {
+      // Health check
+      const health = await fetch('/health').then(r => r.json());
+      
+      document.getElementById('statUptime').textContent = formatUptime(health.uptime);
+      document.getElementById('infoVersion').textContent = health.version;
+      document.getElementById('infoNode').textContent = navigator.userAgent.match(/Node\.js\/[\d.]+/)?.[0] || 'N/A';
+      document.getElementById('infoEnv').textContent = 'Development';
+      
+      // Admin stats
+      const stats = await apiGet('/api/admin/stats');
+      if (stats) {
+        document.getElementById('statDbs').textContent = stats.databases ?? '-';
+        document.getElementById('statStorage').textContent = stats.storageUsage ?? '-';
+        document.getElementById('statApiKeys').textContent = stats.apiKeys ?? '-';
+        document.getElementById('infoLmdb').textContent = stats.lmdbPath ?? '-';
+        document.getElementById('infoStoragePath').textContent = stats.storagePath ?? '-';
+      }
+      
+      // User info
+      const me = await apiGet('/api/me');
+      if (me && me.ok) {
+        document.getElementById('userEmail').textContent = me.user.email;
+        document.getElementById('userAvatar').textContent = me.user.email.charAt(0).toUpperCase();
+        document.getElementById('settingsEmail').value = me.user.email;
+      }
+    }
+    
+    // Load databases
+    async function loadDatabases() {
+      const loading = document.getElementById('dbLoading');
+      const table = document.getElementById('dbTable');
+      const empty = document.getElementById('dbEmpty');
+      const tbody = document.getElementById('dbTableBody');
+      
+      const data = await apiGet('/api/admin/databases');
+      
+      loading.style.display = 'none';
+      
+      if (data && data.databases && data.databases.length > 0) {
+        table.style.display = 'table';
+        tbody.innerHTML = data.databases.map(db => `
+          <tr>
+            <td><strong>${db.name}</strong></td>
+            <td>${db.keys ?? '-'}</td>
+            <td>
+              <button class="btn btn-secondary" onclick="window.open('/api/dbs/${db.name}', '_blank')">Browse</button>
+            </td>
+          </tr>
+        `).join('');
+      } else {
+        empty.style.display = 'block';
+      }
+    }
+    
+    // Load storage
+    async function loadStorage() {
+      const loading = document.getElementById('storageLoading');
+      const list = document.getElementById('storageList');
+      const empty = document.getElementById('storageEmpty');
+      
+      const data = await apiGet('/api/admin/storage');
+      
+      loading.style.display = 'none';
+      
+      if (data && data.files && data.files.length > 0) {
+        list.style.display = 'block';
+        list.innerHTML = data.files.map(file => `
+          <li class="folder-item">
+            <a href="/api/storage/${file.name}" class="folder-link" target="_blank">
+              📄 ${file.name}
+              <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: auto;">${formatBytes(file.size)}</span>
+            </a>
+          </li>
+        `).join('');
+      } else {
+        empty.style.display = 'block';
+      }
+    }
+    
+    // Helpers
+    function formatUptime(seconds) {
+      if (!seconds) return '-';
+      const d = Math.floor(seconds / 86400);
+      const h = Math.floor((seconds % 86400) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      if (d > 0) return `${d}d ${h}h`;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+    
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+    
+    // Initial load
+    loadOverview();
+  </script>
+</body>
+</html>
