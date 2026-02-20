@@ -60,6 +60,7 @@ async function authMiddleware(c: any, next: any) {
   // - API key auth routes (/api/auth)
   // - Admin auth routes (login, logout, me, admin-status)
   // - Admin routes (/api/admin/*) - these are protected by adminAuthMiddleware
+  // - Storage routes (/api/storage/*) - admin dashboard uses JWT
   if (
     path === '/' ||
     path === '/login' ||
@@ -69,7 +70,8 @@ async function authMiddleware(c: any, next: any) {
     path === '/api/logout' ||
     path === '/api/me' ||
     path === '/api/admin-status' ||
-    path.startsWith('/api/admin/')
+    path.startsWith('/api/admin/') ||
+    path.startsWith('/api/storage/')
   ) {
     return next();
   }
