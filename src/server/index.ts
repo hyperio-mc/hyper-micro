@@ -53,6 +53,8 @@ export function loadConfig(): EnvConfig {
 async function authMiddleware(c: any, next: any) {
   const path = c.req.path;
   
+  console.log('[DEBUG authMiddleware] path:', path);
+  
   // Skip auth for:
   // - Landing page
   // - Login page
