@@ -62,6 +62,97 @@ Default key: `dev-key-change-in-production`
 | STORAGE_PATH | ./data/storage | File storage path |
 | API_KEYS | dev-key-change-in-production | Comma-separated API keys |
 
+## Deployment
+
+### Railway (Recommended)
+
+```bash
+# Install Railway CLI
+npm i -g @railway/cli
+
+# Login
+railway login
+
+# Initialize project
+railway init
+
+# Deploy
+railway up
+```
+
+Set environment variables in Railway dashboard:
+- `PORT` = 8080 (Railway uses port 8080)
+- `LMDB_PATH` = /data/lmdb
+- `STORAGE_PATH` = /data/storage
+- `API_KEYS` = your-api-key
+
+Add a volume in Railway for persistent data:
+```toml
+# railway.toml
+[[volume]]
+  name = "hyper-data"
+  mountDir = "/data"
+```
+
+### Render
+
+```bash
+# Install Render CLI
+npm i -g @render/cli
+render login
+```
+
+Create `render.yaml`:
+```yaml
+services:
+  - name: hyper-micro
+    type: static
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: LMDB_PATH
+        value: /data/lmdb
+      - key: STORAGE_PATH
+        value: /data/storage
+      - key: API_KEYS
+        sync: false
+```
+
+Render requires a persistent disk for LMDB + storage. Use Render's "Persistent Disk" feature.
+
+### Fly.io
+
+```bash
+# Install Fly CLI
+brew install flyctl
+fly auth login
+```
+
+Create `fly.toml`:
+```toml
+app = "hyper-micro"
+
+[build]
+  builder = "heroku/buildpack:20"
+
+[env]
+  PORT = "8080"
+  LMDB_PATH = "/data/lmdb"
+  STORAGE_PATH = "/data/storage"
+
+[[mounts]]
+  source = "hyper_data"
+  destination = "/data"
+```
+
+Deploy:
+```bash
+fly launch
+fly deploy
+```
+
 ## Docker
 
 ```bash
