@@ -155,6 +155,18 @@ export function createApp(): Hono {
     }
   });
 
+  // Admin dashboard - serve HTML template
+  app.get('/admin', (c) => {
+    try {
+      const html = readFileSync(join(templatesDir, 'dashboard.html'), 'utf-8');
+      return c.html(html);
+    } catch (err) {
+      return c.json({
+        error: 'Dashboard template not found',
+      }, 500);
+    }
+  });
+
   // Mount admin auth routes (login, logout, me, admin-status)
   // These handle JWT-based admin authentication
   app.route('/api', adminAuthRoutes);
