@@ -21,7 +21,14 @@ import {
   listDocuments, 
   listApiKeys, 
   generateApiKey, 
-  deleteApiKey 
+  deleteApiKey,
+  getDocument,
+  createDocument,
+  updateDocument,
+  deleteDocument,
+  createDatabase,
+  deleteDatabase,
+  databaseExists,
 } from '../db/index.js';
 import { getStoragePath } from '../api/storage.js';
 import { existsSync } from 'node:fs';
@@ -321,6 +328,304 @@ adminRoutes.get('/env', async (c) => {
     ok: true,
     env: safeEnv,
   });
+});
+
+// ============================================
+// Database Browser API
+// ============================================
+
+/**
+ * List all databases (alternative endpoint for database browser).
+ * 
+ * @route GET /api/admin/dbs
+ * @returns {Object} 200 - { ok: true, databases: Array<{ name, keys }> }
+ */
+adminRoutes.get('/dbs', async (c) => {
+  try {
+    const dbNames = await listDatabases();
+    const databases = [];
+    
+    for (const name of dbNames) {
+      try {
+        const docs = await listDocuments(name, { limit: 10000 });
+        databases.push({
+          name,
+          keys: docs.length,
+        });
+      } catch {
+        databases.push({
+          name,
+          keys: null,
+        });
+      }
+    }
+    
+    return c.json({
+      ok: true,
+      databases,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list databases';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Get database info.
+ * 
+ * @route GET /api/admin/dbs/:name
+ * @returns {Object} 200 - { ok: true, name, keys, size }
+ */
+adminRoutes.get('/dbs/:name', async (c) => {
+  try {
+    const name = c.req.param('name');
+    
+    if (!await databaseExists(name)) {
+      return c.json({
+        ok: false,
+        error: `Database '${name}' not found`,
+      }, 404);
+    }
+    
+    const docs = await listDocuments(name, { limit: 10000 });
+    
+    return c.json({
+      ok: true,
+      name,
+      keys: docs.length,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to get database info';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * List documents in a database.
+ * 
+ * @route GET /api/admin/dbs/:name/docs
+ * @returns {Object} 200 - { ok: true, documents: Array<{ key, value }> }
+ */
+adminRoutes.get('/dbs/:name/docs', async (c) => {
+  try {
+    const name = c.req.param('name');
+    const limit = parseInt(c.req.query('limit') || '100');
+    
+    if (!await databaseExists(name)) {
+      return c.json({
+        ok: false,
+        error: `Database '${name}' not found`,
+      }, 404);
+    }
+    
+    const documents = await listDocuments(name, { limit: Math.min(limit, 1000) });
+    
+    return c.json({
+      ok: true,
+      documents,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list documents';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Get a single document.
+ * 
+ * @route GET /api/admin/dbs/:name/docs/:key
+ * @returns {Object} 200 - { ok: true, document: { key, value } }
+ */
+adminRoutes.get('/dbs/:name/docs/:key', async (c) => {
+  try {
+    const name = c.req.param('name');
+    const key = decodeURIComponent(c.req.param('key'));
+    
+    const doc = await getDocument(name, key);
+    
+    if (!doc) {
+      return c.json({
+        ok: false,
+        error: `Document '${key}' not found`,
+      }, 404);
+    }
+    
+    return c.json({
+      ok: true,
+      document: doc,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to get document';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Create a new document.
+ * 
+ * @route POST /api/admin/dbs/:name/docs
+ * @body { key: string, value: any } - Document key and value
+ * @returns {Object} 201 - { ok: true, document: { key, value } }
+ */
+adminRoutes.post('/dbs/:name/docs', async (c) => {
+  try {
+    const name = c.req.param('name');
+    const body = await c.req.json();
+    
+    const { key, value } = body;
+    
+    if (!key) {
+      return c.json({
+        ok: false,
+        error: 'Document key is required',
+      }, 400);
+    }
+    
+    // Create database if it doesn't exist
+    if (!await databaseExists(name)) {
+      await createDatabase(name);
+    }
+    
+    await createDocument(name, key, value);
+    
+    return c.json({
+      ok: true,
+      document: { key, value },
+    }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create document';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 400);
+  }
+});
+
+/**
+ * Update an existing document.
+ * 
+ * @route PUT /api/admin/dbs/:name/docs/:key
+ * @body { value: any } - New document value
+ * @returns {Object} 200 - { ok: true }
+ */
+adminRoutes.put('/dbs/:name/docs/:key', async (c) => {
+  try {
+    const name = c.req.param('name');
+    const key = decodeURIComponent(c.req.param('key'));
+    const body = await c.req.json();
+    
+    const { value } = body;
+    
+    await updateDocument(name, key, value);
+    
+    return c.json({
+      ok: true,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to update document';
+    const status = message.includes('not found') ? 404 : 400;
+    return c.json({
+      ok: false,
+      error: message,
+    }, status);
+  }
+});
+
+/**
+ * Delete a document.
+ * 
+ * @route DELETE /api/admin/dbs/:name/docs/:key
+ * @returns {Object} 200 - { ok: true }
+ */
+adminRoutes.delete('/dbs/:name/docs/:key', async (c) => {
+  try {
+    const name = c.req.param('name');
+    const key = decodeURIComponent(c.req.param('key'));
+    
+    await deleteDocument(name, key);
+    
+    return c.json({
+      ok: true,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to delete document';
+    const status = message.includes('not found') ? 404 : 400;
+    return c.json({
+      ok: false,
+      error: message,
+    }, status);
+  }
+});
+
+/**
+ * Create a new database.
+ * 
+ * @route POST /api/admin/dbs
+ * @body { name: string } - Database name
+ * @returns {Object} 201 - { ok: true, name }
+ */
+adminRoutes.post('/dbs', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { name } = body;
+    
+    if (!name) {
+      return c.json({
+        ok: false,
+        error: 'Database name is required',
+      }, 400);
+    }
+    
+    await createDatabase(name);
+    
+    return c.json({
+      ok: true,
+      name,
+    }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create database';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 400);
+  }
+});
+
+/**
+ * Delete a database.
+ * 
+ * @route DELETE /api/admin/dbs/:name
+ * @returns {Object} 200 - { ok: true }
+ */
+adminRoutes.delete('/dbs/:name', async (c) => {
+  try {
+    const name = c.req.param('name');
+    
+    await deleteDatabase(name);
+    
+    return c.json({
+      ok: true,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to delete database';
+    const status = message.includes('not found') ? 404 : 400;
+    return c.json({
+      ok: false,
+      error: message,
+    }, status);
+  }
 });
 
 // ============================================
