@@ -53,7 +53,7 @@ export function loadConfig(): EnvConfig {
 async function authMiddleware(c: any, next: any) {
   const path = c.req.path;
   
-  console.log('[DEBUG authMiddleware] path:', path);
+  console.log('[DEBUG authMiddleware] path:', path, '| startsWith /api/storage/:', path.startsWith('/api/storage/'));
   
   // Skip auth for:
   // - Landing page
