@@ -1,0 +1,58 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Fix timing attack vulnerability in API key validation",
+      "description": "The validateApiKey function in src/db/index.ts uses simple equality comparison for API key hashes, which is vulnerable to timing attacks. Use crypto.timingSafeEqual() for secure comparison.",
+      "priority": "high",
+      "category": "Security",
+      "status": "open",
+      "created": "2026-02-20T18:55:00-05:00",
+      "reference": "docs/CODE_REVIEW.md - Critical Issue #1"
+    },
+    {
+      "id": "task-002",
+      "title": "Add path traversal protection to storage API",
+      "description": "The storage API's path sanitization is insufficient. Add path resolution validation (path.resolve + startsWith check) to all storage endpoints to prevent directory traversal attacks.",
+      "priority": "high",
+      "category": "Security",
+      "status": "open",
+      "created": "2026-02-20T18:55:00-05:00",
+      "reference": "docs/CODE_REVIEW.md - High Severity Issue #2"
+    },
+    {
+      "id": "task-003",
+      "title": "Implement rate limiting on authentication endpoints",
+      "description": "The /api/login endpoint has no rate limiting, making it vulnerable to brute force attacks. Add rate limiting middleware (e.g., hono-rate-limiter) to prevent credential stuffing attacks.",
+      "priority": "high",
+      "category": "Security",
+      "status": "open",
+      "created": "2026-02-20T18:55:00-05:00",
+      "reference": "docs/CODE_REVIEW.md - High Severity Issue #3"
+    },
+    {
+      "id": "task-004",
+      "title": "Enforce API keys configuration in production",
+      "description": "The default development API key 'dev-key-change-in-production' could accidentally be used in production. Add a startup check that refuses to run in production without proper API_KEYS configuration.",
+      "priority": "high",
+      "category": "Security",
+      "status": "open",
+      "created": "2026-02-20T18:55:00-05:00",
+      "reference": "docs/CODE_REVIEW.md - High Severity Issue #4"
+    },
+    {
+      "id": "task-005",
+      "title": "Implement Zod-based input validation",
+      "description": "Zod is a dependency but not used. Implement Zod schemas for all API input validation to ensure consistent, type-safe validation across all endpoints. Add request size limits to prevent DoS attacks.",
+      "priority": "high",
+      "category": "Architecture",
+      "status": "open",
+      "created": "2026-02-20T18:55:00-05:00",
+      "reference": "docs/CODE_REVIEW.md - High Severity Issue #5"
+    }
+  ],
+  "metadata": {
+    "lastUpdated": "2026-02-20T18:55:00-05:00",
+    "reviewReference": "docs/CODE_REVIEW.md"
+  }
+}
