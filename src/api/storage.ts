@@ -89,6 +89,15 @@ export function setStoragePath(path: string): void {
 }
 
 /**
+ * Gets the current storage path.
+ * 
+ * @returns Current storage path
+ */
+export function getStoragePath(): string {
+  return storagePath;
+}
+
+/**
  * Gets the full file system path for a bucket and key.
  * Sanitizes names to prevent path traversal attacks.
  * 

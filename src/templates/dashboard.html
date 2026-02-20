@@ -659,6 +659,105 @@
         
         <!-- Settings Tab -->
         <div class="tab-panel" id="tab-settings">
+          <!-- API Keys Section -->
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">API Keys</h3>
+              <button class="btn btn-primary" id="createKeyBtn">+ New Key</button>
+            </div>
+            <div class="section-body">
+              <div class="loading-spinner" id="keysLoading">
+                <div class="spinner"></div>
+              </div>
+              <table class="data-table" id="keysTable" style="display: none;">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Created</th>
+                    <th>Key</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="keysTableBody">
+                </tbody>
+              </table>
+              <div class="empty-state" id="keysEmpty" style="display: none;">
+                <div class="empty-state-icon">🔑</div>
+                <p>No API keys yet. Create one to get started.</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Create Key Modal -->
+          <div id="createKeyModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;">
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; width: 400px; max-width: 90vw;">
+              <h3 style="color: var(--text-primary); margin-bottom: 1rem;">Create API Key</h3>
+              <div class="form-group">
+                <label class="form-label">Key Name (optional)</label>
+                <input type="text" class="form-input" id="newKeyName" placeholder="e.g., Production App">
+              </div>
+              <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" id="cancelCreateKey" style="flex: 1;">Cancel</button>
+                <button class="btn btn-primary" id="confirmCreateKey" style="flex: 1;">Create</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- New Key Display Modal -->
+          <div id="newKeyModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;">
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; width: 500px; max-width: 90vw;">
+              <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">API Key Created</h3>
+              <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">Copy this key now - it won't be shown again!</p>
+              <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem; font-family: monospace; font-size: 0.875rem; color: var(--accent); word-break: break-all;" id="newKeyValue"></div>
+              <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" id="copyNewKey" style="flex: 1;">Copy to Clipboard</button>
+                <button class="btn btn-primary" id="closeNewKey" style="flex: 1;">Done</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Environment Variables Section -->
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Environment</h3>
+            </div>
+            <div class="section-body">
+              <table class="data-table">
+                <tbody id="envTableBody">
+                  <tr>
+                    <td style="width: 200px; color: var(--text-muted);">Node.js</td>
+                    <td id="envNode">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">Platform</td>
+                    <td id="envPlatform">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">Environment</td>
+                    <td id="envNodeEnv">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">LMDB Path</td>
+                    <td id="envLmdb">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">Storage Path</td>
+                    <td id="envStorage">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">Admin Auth</td>
+                    <td id="envAdminAuth">-</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text-muted);">API Keys Configured</td>
+                    <td id="envApiKeys">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Admin Account Section -->
           <div class="section">
             <div class="section-header">
               <h3 class="section-title">Admin Account</h3>
@@ -674,12 +773,13 @@
             </div>
           </div>
           
+          <!-- Security Section -->
           <div class="section">
             <div class="section-header">
               <h3 class="section-title">Security</h3>
             </div>
             <div class="section-body">
-              <button class="btn btn-secondary" id="clearTokenBtn">Clear Saved Token</button>
+              <button class="btn btn-secondary" id="clearTokenBtn">Sign Out</button>
               <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
                 This will sign you out and require re-authentication.
               </p>
@@ -734,6 +834,10 @@
       if (tab === 'overview') loadOverview();
       if (tab === 'databases') loadDatabases();
       if (tab === 'storage') loadStorage();
+      if (tab === 'settings') {
+        loadApiKeys();
+        loadEnv();
+      }
     }
     
     navItems.forEach(item => {
@@ -803,7 +907,7 @@
       
       document.getElementById('statUptime').textContent = formatUptime(health.uptime);
       document.getElementById('infoVersion').textContent = health.version;
-      document.getElementById('infoNode').textContent = navigator.userAgent.match(/Node\.js\/[\d.]+/)?.[0] || 'N/A';
+      document.getElementById('infoNode').textContent = process ? process.version : 'N/A';
       document.getElementById('infoEnv').textContent = 'Development';
       
       // Admin stats
@@ -814,14 +918,6 @@
         document.getElementById('statApiKeys').textContent = stats.apiKeys ?? '-';
         document.getElementById('infoLmdb').textContent = stats.lmdbPath ?? '-';
         document.getElementById('infoStoragePath').textContent = stats.storagePath ?? '-';
-      }
-      
-      // User info
-      const me = await apiGet('/api/me');
-      if (me && me.ok) {
-        document.getElementById('userEmail').textContent = me.user.email;
-        document.getElementById('userAvatar').textContent = me.user.email.charAt(0).toUpperCase();
-        document.getElementById('settingsEmail').value = me.user.email;
       }
     }
     
@@ -866,7 +962,7 @@
         list.style.display = 'block';
         list.innerHTML = data.files.map(file => `
           <li class="folder-item">
-            <a href="/api/storage/${file.name}" class="folder-link" target="_blank">
+            <a href="/api/storage/${file.bucket}/${file.name}" class="folder-link" target="_blank">
               📄 ${file.name}
               <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: auto;">${formatBytes(file.size)}</span>
             </a>
@@ -876,6 +972,135 @@
         empty.style.display = 'block';
       }
     }
+    
+    // Load Settings tab - API Keys
+    async function loadApiKeys() {
+      const loading = document.getElementById('keysLoading');
+      const table = document.getElementById('keysTable');
+      const empty = document.getElementById('keysEmpty');
+      const tbody = document.getElementById('keysTableBody');
+      
+      const data = await apiGet('/api/admin/keys');
+      
+      loading.style.display = 'none';
+      
+      if (data && data.keys && data.keys.length > 0) {
+        table.style.display = 'table';
+        tbody.innerHTML = data.keys.map(key => `
+          <tr>
+            <td><strong>${key.name || 'Unnamed'}</strong></td>
+            <td>${formatDate(key.created)}</td>
+            <td><code style="color: var(--text-muted); font-size: 0.75rem;">••••••••••••</code></td>
+            <td>
+              <button class="btn btn-secondary" style="color: var(--danger);" onclick="revokeKey('${key.id}', '${key.name || 'Unnamed'}')">Revoke</button>
+            </td>
+          </tr>
+        `).join('');
+      } else {
+        empty.style.display = 'block';
+      }
+    }
+    
+    // Load Environment
+    async function loadEnv() {
+      const data = await apiGet('/api/admin/env');
+      
+      if (data && data.env) {
+        document.getElementById('envNode').textContent = data.env.NODE_ENV || 'development';
+        document.getElementById('envPlatform').textContent = data.env.PLATFORM || 'unknown';
+        document.getElementById('envNodeEnv').textContent = data.env.NODE_ENV || 'development';
+        document.getElementById('envLmdb').textContent = data.env.LMDB_PATH || '-';
+        document.getElementById('envStorage').textContent = data.env.STORAGE_PATH || '-';
+        document.getElementById('envAdminAuth').textContent = data.env.ADMIN_AUTH_CONFIGURED === 'true' ? '✅ Configured' : '⚠️ Not configured';
+        document.getElementById('envApiKeys').textContent = data.env.API_KEYS_CONFIGURED === 'true' ? '✅ Yes' : '❌ No';
+      }
+      
+      // Load user info
+      const me = await apiGet('/api/me');
+      if (me && me.ok) {
+        document.getElementById('userEmail').textContent = me.user.email;
+        document.getElementById('userAvatar').textContent = me.user.email.charAt(0).toUpperCase();
+        document.getElementById('settingsEmail').value = me.user.email;
+      }
+    }
+    
+    // Revoke API Key
+    async function revokeKey(id, name) {
+      if (!confirm(`Revoke API key "${name}"? This action cannot be undone.`)) {
+        return;
+      }
+      
+      const res = await fetch(`/api/admin/keys/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (res.ok) {
+        loadApiKeys();
+      } else {
+        alert('Failed to revoke key');
+      }
+    }
+    
+    // Create Key Modal
+    const createKeyBtn = document.getElementById('createKeyBtn');
+    const createKeyModal = document.getElementById('createKeyModal');
+    const cancelCreateKey = document.getElementById('cancelCreateKey');
+    const confirmCreateKey = document.getElementById('confirmCreateKey');
+    const newKeyName = document.getElementById('newKeyName');
+    const newKeyModal = document.getElementById('newKeyModal');
+    const newKeyValue = document.getElementById('newKeyValue');
+    const copyNewKey = document.getElementById('copyNewKey');
+    const closeNewKey = document.getElementById('closeNewKey');
+    
+    createKeyBtn.addEventListener('click', () => {
+      newKeyName.value = '';
+      createKeyModal.style.display = 'flex';
+    });
+    
+    cancelCreateKey.addEventListener('click', () => {
+      createKeyModal.style.display = 'none';
+    });
+    
+    confirmCreateKey.addEventListener('click', async () => {
+      const res = await fetch('/api/admin/keys', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: newKeyName.value || undefined }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        createKeyModal.style.display = 'none';
+        newKeyValue.textContent = data.key;
+        newKeyModal.style.display = 'flex';
+        loadApiKeys();
+      } else {
+        alert(data.error || 'Failed to create key');
+      }
+    });
+    
+    copyNewKey.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(newKeyValue.textContent);
+        copyNewKey.textContent = 'Copied!';
+        setTimeout(() => {
+          copyNewKey.textContent = 'Copy to Clipboard';
+        }, 2000);
+      } catch {
+        alert('Failed to copy to clipboard');
+      }
+    });
+    
+    closeNewKey.addEventListener('click', () => {
+      newKeyModal.style.display = 'none';
+    })
     
     // Helpers
     function formatUptime(seconds) {
@@ -894,6 +1119,12 @@
       const sizes = ['B', 'KB', 'MB', 'GB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+    
+    function formatDate(isoString) {
+      if (!isoString) return '-';
+      const date = new Date(isoString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     
     // Initial load
