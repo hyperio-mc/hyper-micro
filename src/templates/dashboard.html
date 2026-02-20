@@ -610,28 +610,131 @@
         
         <!-- Databases Tab -->
         <div class="tab-panel" id="tab-databases">
-          <div class="section">
-            <div class="section-header">
-              <h3 class="section-title">Databases</h3>
-            </div>
-            <div class="section-body">
-              <div class="loading-spinner" id="dbLoading">
-                <div class="spinner"></div>
+          <!-- Database List View -->
+          <div id="dbListView">
+            <div class="section">
+              <div class="section-header">
+                <h3 class="section-title">Databases</h3>
+                <button class="btn btn-primary" id="createDbBtn">+ New Database</button>
               </div>
-              <table class="data-table" id="dbTable" style="display: none;">
-                <thead>
-                  <tr>
-                    <th>Database</th>
-                    <th>Keys</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="dbTableBody">
-                </tbody>
-              </table>
-              <div class="empty-state" id="dbEmpty" style="display: none;">
-                <div class="empty-state-icon">📦</div>
-                <p>No databases found</p>
+              <div class="section-body">
+                <div class="loading-spinner" id="dbLoading">
+                  <div class="spinner"></div>
+                </div>
+                <table class="data-table" id="dbTable" style="display: none;">
+                  <thead>
+                    <tr>
+                      <th>Database</th>
+                      <th>Keys</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dbTableBody">
+                  </tbody>
+                </table>
+                <div class="empty-state" id="dbEmpty" style="display: none;">
+                  <div class="empty-state-icon">📦</div>
+                  <p>No databases found</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Database Detail View -->
+          <div id="dbDetailView" style="display: none;">
+            <div class="section">
+              <div class="section-header">
+                <div>
+                  <button class="btn btn-secondary" id="backToDbList">← Back</button>
+                  <h3 class="section-title" style="display: inline-block; margin-left: 1rem;" id="dbDetailTitle">Database</h3>
+                </div>
+                <div>
+                  <button class="btn btn-primary" id="createDocBtn">+ New Record</button>
+                  <button class="btn btn-secondary" style="color: var(--danger); margin-left: 0.5rem;" id="deleteDbBtn">Delete Database</button>
+                </div>
+              </div>
+              <div class="section-body">
+                <div class="loading-spinner" id="docsLoading">
+                  <div class="spinner"></div>
+                </div>
+                <table class="data-table" id="docsTable" style="display: none;">
+                  <thead>
+                    <tr>
+                      <th>Key</th>
+                      <th>Value</th>
+                      <th style="width: 150px;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="docsTableBody">
+                  </tbody>
+                </table>
+                <div class="empty-state" id="docsEmpty" style="display: none;">
+                  <div class="empty-state-icon">📄</div>
+                  <p>No records in this database</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Record Detail/Edit View -->
+          <div id="recordView" style="display: none;">
+            <div class="section">
+              <div class="section-header">
+                <div>
+                  <button class="btn btn-secondary" id="backToDocs">← Back</button>
+                  <h3 class="section-title" style="display: inline-block; margin-left: 1rem;" id="recordTitle">Record</h3>
+                </div>
+                <div>
+                  <button class="btn btn-primary" id="saveRecordBtn">Save</button>
+                  <button class="btn btn-secondary" style="color: var(--danger); margin-left: 0.5rem;" id="deleteRecordBtn">Delete</button>
+                </div>
+              </div>
+              <div class="section-body">
+                <div class="form-group">
+                  <label class="form-label">Key</label>
+                  <input type="text" class="form-input" id="recordKeyInput" style="font-family: monospace;" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Value (JSON)</label>
+                  <textarea class="form-input" id="recordValueInput" style="font-family: monospace; min-height: 300px; max-width: 100%; resize: vertical;" spellcheck="false"></textarea>
+                </div>
+                <div id="recordError" style="color: var(--danger); font-size: 0.875rem; margin-top: 0.5rem;"></div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Create Record Modal -->
+          <div id="createDocModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;">
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; width: 500px; max-width: 90vw; max-height: 80vh; overflow-y: auto;">
+              <h3 style="color: var(--text-primary); margin-bottom: 1rem;">Create New Record</h3>
+              <div class="form-group">
+                <label class="form-label">Key</label>
+                <input type="text" class="form-input" id="newDocKey" placeholder="e.g., user:1" style="font-family: monospace;">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Value (JSON)</label>
+                <textarea class="form-input" id="newDocValue" style="font-family: monospace; min-height: 150px; resize: vertical;" spellcheck="false" placeholder='{"name": "John", "email": "john@example.com"}'></textarea>
+              </div>
+              <div id="newDocError" style="color: var(--danger); font-size: 0.875rem; margin-bottom: 0.5rem;"></div>
+              <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                <button class="btn btn-secondary" id="cancelCreateDoc" style="flex: 1;">Cancel</button>
+                <button class="btn btn-primary" id="confirmCreateDoc" style="flex: 1;">Create</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Create Database Modal -->
+          <div id="createDbModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;">
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; width: 400px; max-width: 90vw;">
+              <h3 style="color: var(--text-primary); margin-bottom: 1rem;">Create New Database</h3>
+              <div class="form-group">
+                <label class="form-label">Database Name</label>
+                <input type="text" class="form-input" id="newDbName" placeholder="e.g., users, products, sessions">
+              </div>
+              <div id="newDbError" style="color: var(--danger); font-size: 0.875rem; margin-bottom: 0.5rem;"></div>
+              <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                <button class="btn btn-secondary" id="cancelCreateDb" style="flex: 1;">Cancel</button>
+                <button class="btn btn-primary" id="confirmCreateDb" style="flex: 1;">Create</button>
               </div>
             </div>
           </div>
@@ -927,8 +1030,16 @@
       const table = document.getElementById('dbTable');
       const empty = document.getElementById('dbEmpty');
       const tbody = document.getElementById('dbTableBody');
+      const listView = document.getElementById('dbListView');
+      const detailView = document.getElementById('dbDetailView');
+      const recordView = document.getElementById('recordView');
       
-      const data = await apiGet('/api/admin/databases');
+      // Show list view
+      listView.style.display = 'block';
+      detailView.style.display = 'none';
+      recordView.style.display = 'none';
+      
+      const data = await apiGet('/api/admin/dbs');
       
       loading.style.display = 'none';
       
@@ -939,7 +1050,7 @@
             <td><strong>${db.name}</strong></td>
             <td>${db.keys ?? '-'}</td>
             <td>
-              <button class="btn btn-secondary" onclick="window.open('/api/dbs/${db.name}', '_blank')">Browse</button>
+              <button class="btn btn-primary" onclick="openDatabase('${db.name}')">Browse</button>
             </td>
           </tr>
         `).join('');
@@ -947,6 +1058,317 @@
         empty.style.display = 'block';
       }
     }
+    
+    // Current state for database browser
+    let currentDbName = null;
+    let currentRecordKey = null;
+    
+    // Open a database and show its documents
+    async function openDatabase(dbName) {
+      currentDbName = dbName;
+      
+      const listView = document.getElementById('dbListView');
+      const detailView = document.getElementById('dbDetailView');
+      const recordView = document.getElementById('recordView');
+      const loading = document.getElementById('docsLoading');
+      const table = document.getElementById('docsTable');
+      const empty = document.getElementById('docsEmpty');
+      const tbody = document.getElementById('docsTableBody');
+      const title = document.getElementById('dbDetailTitle');
+      
+      // Show detail view
+      listView.style.display = 'none';
+      detailView.style.display = 'block';
+      recordView.style.display = 'none';
+      
+      title.textContent = dbName;
+      loading.style.display = 'flex';
+      table.style.display = 'none';
+      empty.style.display = 'none';
+      
+      const data = await apiGet(`/api/admin/dbs/${dbName}/docs`);
+      
+      loading.style.display = 'none';
+      
+      if (data && data.documents && data.documents.length > 0) {
+        table.style.display = 'table';
+        tbody.innerHTML = data.documents.map(doc => {
+          const valuePreview = formatValuePreview(doc.value);
+          return `
+            <tr>
+              <td><code style="color: var(--accent);">${escapeHtml(doc.key)}</code></td>
+              <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(JSON.stringify(doc.value))}">${escapeHtml(valuePreview)}</td>
+              <td>
+                <button class="btn btn-secondary" onclick="openRecord('${dbName}', '${escapeHtml(doc.key)}')">View</button>
+                <button class="btn btn-secondary" style="color: var(--danger); margin-left: 0.25rem;" onclick="deleteRecordDirect('${dbName}', '${escapeHtml(doc.key)}')">🗑️</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        empty.style.display = 'block';
+      }
+    }
+    
+    // Open a record for viewing/editing
+    async function openRecord(dbName, key) {
+      currentDbName = dbName;
+      currentRecordKey = key;
+      
+      const listView = document.getElementById('dbListView');
+      const detailView = document.getElementById('dbDetailView');
+      const recordView = document.getElementById('recordView');
+      const title = document.getElementById('recordTitle');
+      const keyInput = document.getElementById('recordKeyInput');
+      const valueInput = document.getElementById('recordValueInput');
+      const errorDiv = document.getElementById('recordError');
+      
+      // Show record view
+      listView.style.display = 'none';
+      detailView.style.display = 'none';
+      recordView.style.display = 'block';
+      
+      title.textContent = `Record in ${dbName}`;
+      keyInput.value = key;
+      errorDiv.textContent = '';
+      
+      const data = await apiGet(`/api/admin/dbs/${dbName}/docs/${encodeURIComponent(key)}`);
+      
+      if (data && data.ok) {
+        valueInput.value = JSON.stringify(data.document.value, null, 2);
+      } else {
+        valueInput.value = '';
+        errorDiv.textContent = 'Failed to load record';
+      }
+    }
+    
+    // Format a value for preview in table
+    function formatValuePreview(value) {
+      if (value === null || value === undefined) return 'null';
+      if (typeof value === 'string') return value.length > 50 ? value.substring(0, 50) + '...' : value;
+      if (typeof value === 'object') {
+        const str = JSON.stringify(value);
+        return str.length > 50 ? str.substring(0, 50) + '...' : str;
+      }
+      return String(value);
+    }
+    
+    // Escape HTML
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    
+    // Make functions available globally
+    window.openDatabase = openDatabase;
+    window.openRecord = openRecord;
+    
+    // Back to database list
+    document.getElementById('backToDbList').addEventListener('click', () => {
+      loadDatabases();
+    });
+    
+    // Back to documents list
+    document.getElementById('backToDocs').addEventListener('click', () => {
+      openDatabase(currentDbName);
+    });
+    
+    // Save record
+    document.getElementById('saveRecordBtn').addEventListener('click', async () => {
+      const valueInput = document.getElementById('recordValueInput');
+      const errorDiv = document.getElementById('recordError');
+      
+      try {
+        const value = JSON.parse(valueInput.value);
+        errorDiv.textContent = '';
+        
+        const res = await fetch(`/api/admin/dbs/${currentDbName}/docs/${encodeURIComponent(currentRecordKey)}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ value }),
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.ok) {
+          errorDiv.style.color = 'var(--success)';
+          errorDiv.textContent = 'Saved successfully!';
+          setTimeout(() => {
+            errorDiv.textContent = '';
+            errorDiv.style.color = 'var(--danger)';
+          }, 2000);
+        } else {
+          errorDiv.textContent = data.error || 'Failed to save';
+        }
+      } catch (e) {
+        errorDiv.textContent = 'Invalid JSON: ' + e.message;
+      }
+    });
+    
+    // Delete record from record view
+    document.getElementById('deleteRecordBtn').addEventListener('click', async () => {
+      if (!confirm(`Delete record "${currentRecordKey}"?`)) return;
+      
+      const res = await fetch(`/api/admin/dbs/${currentDbName}/docs/${encodeURIComponent(currentRecordKey)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (res.ok) {
+        openDatabase(currentDbName);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete');
+      }
+    });
+    
+    // Delete record directly from table
+    window.deleteRecordDirect = async function(dbName, key) {
+      if (!confirm(`Delete record "${key}"?`)) return;
+      
+      const res = await fetch(`/api/admin/dbs/${dbName}/docs/${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (res.ok) {
+        openDatabase(dbName);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete');
+      }
+    };
+    
+    // Create database modal
+    const createDbBtn = document.getElementById('createDbBtn');
+    const createDbModal = document.getElementById('createDbModal');
+    const cancelCreateDb = document.getElementById('cancelCreateDb');
+    const confirmCreateDb = document.getElementById('confirmCreateDb');
+    const newDbName = document.getElementById('newDbName');
+    const newDbError = document.getElementById('newDbError');
+    
+    createDbBtn.addEventListener('click', () => {
+      newDbName.value = '';
+      newDbError.textContent = '';
+      createDbModal.style.display = 'flex';
+    });
+    
+    cancelCreateDb.addEventListener('click', () => {
+      createDbModal.style.display = 'none';
+    });
+    
+    confirmCreateDb.addEventListener('click', async () => {
+      const name = newDbName.value.trim();
+      
+      if (!name) {
+        newDbError.textContent = 'Database name is required';
+        return;
+      }
+      
+      const res = await fetch('/api/admin/dbs', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        createDbModal.style.display = 'none';
+        loadDatabases();
+      } else {
+        newDbError.textContent = data.error || 'Failed to create database';
+      }
+    });
+    
+    // Delete database
+    document.getElementById('deleteDbBtn').addEventListener('click', async () => {
+      if (!confirm(`Delete database "${currentDbName}" and all its records? This cannot be undone!`)) return;
+      
+      const res = await fetch(`/api/admin/dbs/${currentDbName}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (res.ok) {
+        loadDatabases();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete database');
+      }
+    });
+    
+    // Create record modal
+    const createDocBtn = document.getElementById('createDocBtn');
+    const createDocModal = document.getElementById('createDocModal');
+    const cancelCreateDoc = document.getElementById('cancelCreateDoc');
+    const confirmCreateDoc = document.getElementById('confirmCreateDoc');
+    const newDocKey = document.getElementById('newDocKey');
+    const newDocValue = document.getElementById('newDocValue');
+    const newDocError = document.getElementById('newDocError');
+    
+    createDocBtn.addEventListener('click', () => {
+      newDocKey.value = '';
+      newDocValue.value = '';
+      newDocError.textContent = '';
+      createDocModal.style.display = 'flex';
+    });
+    
+    cancelCreateDoc.addEventListener('click', () => {
+      createDocModal.style.display = 'none';
+    });
+    
+    confirmCreateDoc.addEventListener('click', async () => {
+      const key = newDocKey.value.trim();
+      const valueStr = newDocValue.value.trim();
+      
+      if (!key) {
+        newDocError.textContent = 'Key is required';
+        return;
+      }
+      
+      let value;
+      try {
+        value = valueStr ? JSON.parse(valueStr) : null;
+      } catch (e) {
+        newDocError.textContent = 'Invalid JSON: ' + e.message;
+        return;
+      }
+      
+      const res = await fetch(`/api/admin/dbs/${currentDbName}/docs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ key, value }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        createDocModal.style.display = 'none';
+        openDatabase(currentDbName);
+      } else {
+        newDocError.textContent = data.error || 'Failed to create record';
+      }
+    });
     
     // Load storage
     async function loadStorage() {
