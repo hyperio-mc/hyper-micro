@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hyper-micro</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #0a0a0b;
+      color: #e4e4e7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    
+    .container {
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    
+    .logo {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    
+    .logo span {
+      color: #6366f1;
+    }
+    
+    .tagline {
+      color: #71717a;
+      font-size: 1.1rem;
+      margin-bottom: 3rem;
+    }
+    
+    .status-card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .status-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .status-text {
+      color: #22c55e;
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .status-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      font-size: 0.875rem;
+    }
+    
+    .stat {
+      text-align: center;
+    }
+    
+    .stat-label {
+      color: #71717a;
+      margin-bottom: 0.25rem;
+    }
+    
+    .stat-value {
+      color: #fff;
+      font-weight: 500;
+      font-feature-settings: 'tnum';
+    }
+    
+    .login-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: #6366f1;
+      color: #fff;
+      text-decoration: none;
+      padding: 0.875rem 2rem;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 1rem;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .login-btn:hover {
+      background: #4f46e5;
+      transform: translateY(-1px);
+    }
+    
+    .login-btn:active {
+      transform: translateY(0);
+    }
+    
+    .footer {
+      margin-top: 3rem;
+      color: #52525b;
+      font-size: 0.75rem;
+    }
+    
+    .footer a {
+      color: #71717a;
+      text-decoration: none;
+    }
+    
+    .footer a:hover {
+      color: #a1a1aa;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">hyper<span>-micro</span></div>
+    <p class="tagline">Lightweight microservices backend</p>
+    
+    <div class="status-card">
+      <div class="status-header">
+        <span class="status-dot"></span>
+        <span class="status-text">Online</span>
+      </div>
+      <div class="status-details">
+        <div class="stat">
+          <div class="stat-label">Version</div>
+          <div class="stat-value" id="version">--</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Uptime</div>
+          <div class="stat-value" id="uptime">--</div>
+        </div>
+      </div>
+    </div>
+    
+    <a href="/login" class="login-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+        <polyline points="10 17 15 12 10 7"/>
+        <line x1="15" y1="12" x2="3" y2="12"/>
+      </svg>
+      Admin Login
+    </a>
+    
+    <div class="footer">
+      <a href="https://hyper.io" target="_blank">hyper.io</a>
+    </div>
+  </div>
+  
+  <script>
+    // Fetch server status
+    fetch('/health')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('version').textContent = data.version || '1.0.0';
+        
+        // Format uptime
+        const uptime = data.uptime || 0;
+        const hours = Math.floor(uptime / 3600);
+        const minutes = Math.floor((uptime % 3600) / 60);
+        
+        if (hours > 0) {
+          document.getElementById('uptime').textContent = `${hours}h ${minutes}m`;
+        } else {
+          document.getElementById('uptime').textContent = `${minutes}m`;
+        }
+      })
+      .catch(() => {
+        document.getElementById('version').textContent = '1.0.0';
+        document.getElementById('uptime').textContent = '--';
+      });
+  </script>
+</body>
+</html>
