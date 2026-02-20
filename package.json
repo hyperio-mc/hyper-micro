@@ -1,0 +1,32 @@
+{
+  "name": "hyper-micro",
+  "version": "1.0.0",
+  "description": "Lightweight microservices backend with LMDB and file storage",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "microservices",
+    "lmdb",
+    "hono",
+    "storage"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "dotenv": "^16.4.5",
+    "hono": "^4.12.0",
+    "lmdb": "^3.2.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
