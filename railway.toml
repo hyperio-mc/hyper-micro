@@ -1,0 +1,9 @@
+[railway]
+volume = { name = "hyper-micro-data" }
+
+[volume]
+mountPath = "/app/data"
+
+[environment]
+variables.LMDB_PATH = "/app/data/lmdb"
+variables.STORAGE_PATH = "/app/data/storage"
