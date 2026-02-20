@@ -68,7 +68,7 @@ export interface QueryOptions {
 let rootDb: RootDatabase | null = null;
 
 /** Meta database for tracking created databases */
-let metaDb: Database<Record<string, string>> | null = null;
+let metaDb: Database<string> | null = null;
 
 /** Cache of opened database instances */
 const dbCache = new Map<string, Database>();
@@ -250,8 +250,9 @@ export async function listDatabases(): Promise<string[]> {
   
   // Iterate through meta database
   for await (const { key, value } of metaDb.getRange()) {
-    if (!SYSTEM_DBS.includes(key)) {
-      dbs.push(key);
+    const dbName = String(key);
+    if (!SYSTEM_DBS.includes(dbName)) {
+      dbs.push(dbName);
     }
   }
 
@@ -483,7 +484,7 @@ export async function listDocuments(dbName: string, options: QueryOptions = {}):
 
   // Iterate through the database
   for await (const { key, value } of db.getRange(rangeOptions)) {
-    docs.push({ key, value });
+    docs.push({ key: String(key), value });
     
     if (docs.length >= limit) {
       break;
@@ -563,7 +564,7 @@ export async function validateApiKey(key: string): Promise<boolean> {
   const keyHash = hashKey(key);
   
   // Iterate through stored keys
-  for await (const { value } of db.getRange({ prefix: 'key:' })) {
+  for await (const { value } of db.getRange({ start: 'key:', end: 'key:\xff' })) {
     const stored = JSON.parse(value);
     if (stored.keyHash === keyHash) {
       return true;
@@ -589,7 +590,7 @@ export async function listApiKeys(): Promise<Array<{ id: string; name: string; c
   const db = getDb(SYSTEM_DB);
   const keys: Array<{ id: string; name: string; created: string }> = [];
   
-  for await (const { value } of db.getRange({ prefix: 'key:' })) {
+  for await (const { value } of db.getRange({ start: 'key:', end: 'key:\xff' })) {
     const stored = JSON.parse(value);
     keys.push({
       id: stored.id,
