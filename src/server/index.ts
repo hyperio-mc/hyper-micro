@@ -7,6 +7,8 @@ import { initializeLmdb } from '../db/index.js';
 import { initializeStorage } from '../api/storage.js';
 import { dataApi, storageApi, authApi } from '../api/index.js';
 import { validateApiKey } from '../db/index.js';
+import { adminAuthMiddleware, isAdminAuthConfigured } from '../middleware/adminAuth.js';
+import { adminAuthRoutes } from '../routes/adminAuth.js';
 
 // Types
 export interface EnvConfig {
@@ -16,6 +18,9 @@ export interface EnvConfig {
   LMDB_PATH: string;
   STORAGE_PATH: string;
   API_KEYS: string[];
+  ADMIN_EMAIL?: string;
+  ADMIN_PASSWORD?: string; // bcrypt hash
+  JWT_SECRET?: string;
 }
 
 // Load and validate environment configuration
@@ -27,14 +32,33 @@ export function loadConfig(): EnvConfig {
     LMDB_PATH: process.env.LMDB_PATH || './data/lmdb',
     STORAGE_PATH: process.env.STORAGE_PATH || './data/storage',
     API_KEYS: (process.env.API_KEYS || 'dev-key-change-in-production').split(',').map(k => k.trim()),
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+    JWT_SECRET: process.env.JWT_SECRET,
   };
 }
 
-// Auth middleware
+// Auth middleware for API key authentication
+// This middleware validates API keys for general API routes
+// Admin routes (/api/admin/*) are handled separately by adminAuthMiddleware
 async function authMiddleware(c: any, next: any) {
-  // Skip auth for health check and certain paths
   const path = c.req.path;
-  if (path === '/health' || path.startsWith('/api/auth')) {
+  
+  // Skip auth for:
+  // - Health check
+  // - API key auth routes (/api/auth)
+  // - Admin auth routes (login, logout, me, admin-status)
+  // - Admin routes (/api/admin/*) - these are protected by adminAuthMiddleware
+  if (
+    path === '/' ||
+    path === '/health' ||
+    path.startsWith('/api/auth') ||
+    path === '/api/login' ||
+    path === '/api/logout' ||
+    path === '/api/me' ||
+    path === '/api/admin-status' ||
+    path.startsWith('/api/admin/')
+  ) {
     return next();
   }
 
@@ -81,11 +105,14 @@ export function createApp(): Hono {
 
   // Health check endpoint
   app.get('/health', (c) => {
+    // Include admin auth status in health check
+    const adminAuthConfigured = isAdminAuthConfigured();
     return c.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       version: '1.0.0',
+      adminAuth: adminAuthConfigured ? 'configured' : 'not configured',
     });
   });
 
@@ -98,10 +125,18 @@ export function createApp(): Hono {
     });
   });
 
-  // Mount auth API (no auth required for creating keys)
+  // Mount admin auth routes (login, logout, me, admin-status)
+  // These handle JWT-based admin authentication
+  app.route('/api', adminAuthRoutes);
+
+  // Mount auth API (no auth required for creating API keys)
   app.route('/api/auth', authApi);
 
-  // Apply auth middleware to protected routes
+  // Apply admin auth middleware to admin routes (must come before API key middleware)
+  // Admin routes require JWT token from /api/login
+  app.use('/api/admin/*', adminAuthMiddleware);
+
+  // Apply API key auth middleware to other protected routes
   app.use('/api/*', authMiddleware);
 
   // Mount API routes
@@ -181,6 +216,17 @@ export async function startServer(app: Hono, config: EnvConfig) {
   console.log(`🏥 Health check: http://${config.HOST}:${config.PORT}/health`);
   console.log(`📡 Data API: http://${config.HOST}:${config.PORT}/api/dbs`);
   console.log(`📦 Storage API: http://${config.HOST}:${config.PORT}/api/storage`);
+  
+  // Admin auth status
+  const adminAuthConfigured = isAdminAuthConfigured();
+  if (adminAuthConfigured) {
+    console.log(`🔐 Admin auth: Configured (${config.ADMIN_EMAIL})`);
+    console.log(`   POST /api/login - Login with email/password`);
+    console.log(`   GET /api/me - Get current admin user (requires JWT)`);
+    console.log(`   /api/admin/* - Protected admin routes (requires JWT)`);
+  } else {
+    console.log(`⚠️  Admin auth: Not configured (set ADMIN_EMAIL, ADMIN_PASSWORD, JWT_SECRET)`);
+  }
 
   return server;
 }
