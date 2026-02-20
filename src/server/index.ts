@@ -3,12 +3,20 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { initializeLmdb } from '../db/index.js';
 import { initializeStorage } from '../api/storage.js';
 import { dataApi, storageApi, authApi } from '../api/index.js';
 import { validateApiKey } from '../db/index.js';
 import { adminAuthMiddleware, isAdminAuthConfigured } from '../middleware/adminAuth.js';
 import { adminAuthRoutes } from '../routes/adminAuth.js';
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const templatesDir = join(__dirname, '../templates');
 
 // Types
 export interface EnvConfig {
@@ -45,12 +53,15 @@ async function authMiddleware(c: any, next: any) {
   const path = c.req.path;
   
   // Skip auth for:
+  // - Landing page
+  // - Login page
   // - Health check
   // - API key auth routes (/api/auth)
   // - Admin auth routes (login, logout, me, admin-status)
   // - Admin routes (/api/admin/*) - these are protected by adminAuthMiddleware
   if (
     path === '/' ||
+    path === '/login' ||
     path === '/health' ||
     path.startsWith('/api/auth') ||
     path === '/api/login' ||
@@ -116,13 +127,31 @@ export function createApp(): Hono {
     });
   });
 
-  // Root endpoint
+  // Landing page - serve HTML template
   app.get('/', (c) => {
-    return c.json({
-      name: 'hyper',
-      version: '1.0.0',
-      status: 'ok',
-    });
+    try {
+      const html = readFileSync(join(templatesDir, 'index.html'), 'utf-8');
+      return c.html(html);
+    } catch (err) {
+      // Fallback to JSON if template not found
+      return c.json({
+        name: 'hyper',
+        version: '1.0.0',
+        status: 'ok',
+      });
+    }
+  });
+
+  // Login page - serve HTML template
+  app.get('/login', (c) => {
+    try {
+      const html = readFileSync(join(templatesDir, 'login.html'), 'utf-8');
+      return c.html(html);
+    } catch (err) {
+      return c.json({
+        error: 'Login template not found',
+      }, 500);
+    }
   });
 
   // Mount admin auth routes (login, logout, me, admin-status)

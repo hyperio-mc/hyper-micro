@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | hyper-micro</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #0a0a0b;
+      color: #e4e4e7;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    
+    .container {
+      max-width: 400px;
+      width: 100%;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    .logo {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    
+    .logo span {
+      color: #6366f1;
+    }
+    
+    .login-card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 2rem;
+    }
+    
+    .login-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+    
+    .login-subtitle {
+      font-size: 0.875rem;
+      color: #71717a;
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #a1a1aa;
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #0a0a0b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    
+    .form-input::placeholder {
+      color: #52525b;
+    }
+    
+    .error-message {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      color: #fca5a5;
+      font-size: 0.875rem;
+      display: none;
+    }
+    
+    .error-message.visible {
+      display: block;
+    }
+    
+    .submit-btn {
+      width: 100%;
+      padding: 0.875rem 1.5rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 0.5rem;
+    }
+    
+    .submit-btn:hover {
+      background: #4f46e5;
+    }
+    
+    .submit-btn:active {
+      transform: translateY(1px);
+    }
+    
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #71717a;
+      font-size: 0.875rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+      color: #a1a1aa;
+    }
+    
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+      margin-right: 0.5rem;
+    }
+    
+    .submit-btn.loading .spinner {
+      display: inline-block;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="/" class="logo">hyper<span>-micro</span></a>
+    </div>
+    
+    <div class="login-card">
+      <h1 class="login-title">Sign in</h1>
+      <p class="login-subtitle">Enter your admin credentials to continue</p>
+      
+      <div id="error" class="error-message"></div>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email" class="form-label">Email</label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            class="form-input" 
+            placeholder="admin@example.com"
+            required
+            autocapitalize="off"
+            autocorrect="off"
+          >
+        </div>
+        
+        <div class="form-group">
+          <label for="password" class="form-label">Password</label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            class="form-input" 
+            placeholder="Enter your password"
+            required
+          >
+        </div>
+        
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <span class="spinner"></span>
+          <span class="btn-text">Sign in</span>
+        </button>
+      </form>
+    </div>
+    
+    <a href="/" class="back-link">← Back to home</a>
+  </div>
+  
+  <script>
+    const form = document.getElementById('loginForm');
+    const errorDiv = document.getElementById('error');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    function showError(message) {
+      errorDiv.textContent = message;
+      errorDiv.classList.add('visible');
+    }
+    
+    function hideError() {
+      errorDiv.classList.remove('visible');
+    }
+    
+    function setLoading(loading) {
+      if (loading) {
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+        submitBtn.querySelector('.btn-text').textContent = 'Signing in...';
+      } else {
+        submitBtn.classList.remove('loading');
+        submitBtn.disabled = false;
+        submitBtn.querySelector('.btn-text').textContent = 'Sign in';
+      }
+    }
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      
+      if (!email || !password) {
+        showError('Please enter both email and password');
+        return;
+      }
+      
+      setLoading(true);
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          // Store token in localStorage
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('tokenExpires', data.expiresAt);
+          
+          // Redirect to admin
+          window.location.href = '/admin';
+        } else {
+          showError(data.error || 'Login failed');
+          setLoading(false);
+        }
+      } catch (err) {
+        showError('Network error. Please try again.');
+        setLoading(false);
+      }
+    });
+    
+    // Check if already logged in
+    const existingToken = localStorage.getItem('adminToken');
+    if (existingToken) {
+      // Verify token is still valid
+      fetch('/api/me', {
+        headers: {
+          'Authorization': `Bearer ${existingToken}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok) {
+            // Already logged in, redirect to admin
+            window.location.href = '/admin';
+          }
+        })
+        .catch(() => {
+          // Token invalid, clear it
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('tokenExpires');
+        });
+    }
+  </script>
+</body>
+</html>
