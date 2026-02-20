@@ -71,7 +71,8 @@ async function authMiddleware(c: any, next: any) {
     path === '/api/me' ||
     path === '/api/admin-status' ||
     path.startsWith('/api/admin/') ||
-    path.startsWith('/api/storage/')
+    path.startsWith('/api/storage/') ||
+    path === '/api/storage'
   ) {
     return next();
   }
