@@ -742,19 +742,89 @@
         
         <!-- Storage Tab -->
         <div class="tab-panel" id="tab-storage">
-          <div class="section">
-            <div class="section-header">
-              <h3 class="section-title">Storage Browser</h3>
-            </div>
-            <div class="section-body">
-              <div class="loading-spinner" id="storageLoading">
-                <div class="spinner"></div>
+          <!-- Bucket List View -->
+          <div id="bucketListView">
+            <div class="section">
+              <div class="section-header">
+                <h3 class="section-title">Storage Buckets</h3>
+                <button class="btn btn-primary" id="createBucketBtn">+ New Bucket</button>
               </div>
-              <ul class="folder-list" id="storageList" style="display: none;">
-              </ul>
-              <div class="empty-state" id="storageEmpty" style="display: none;">
-                <div class="empty-state-icon">📁</div>
-                <p>No files in storage</p>
+              <div class="section-body">
+                <div class="loading-spinner" id="bucketLoading">
+                  <div class="spinner"></div>
+                </div>
+                <table class="data-table" id="bucketTable" style="display: none;">
+                  <thead>
+                    <tr>
+                      <th>Bucket</th>
+                      <th>Files</th>
+                      <th>Size</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bucketTableBody">
+                  </tbody>
+                </table>
+                <div class="empty-state" id="bucketEmpty" style="display: none;">
+                  <div class="empty-state-icon">📁</div>
+                  <p>No storage buckets yet. Create one to get started.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Bucket Detail View (Files) -->
+          <div id="bucketDetailView" style="display: none;">
+            <div class="section">
+              <div class="section-header">
+                <div>
+                  <button class="btn btn-secondary" id="backToBuckets">← Back</button>
+                  <h3 class="section-title" style="display: inline-block; margin-left: 1rem;" id="bucketDetailTitle">Bucket</h3>
+                </div>
+                <div>
+                  <label class="btn btn-primary" style="cursor: pointer;">
+                    ↑ Upload
+                    <input type="file" id="fileUpload" style="display: none;">
+                  </label>
+                </div>
+              </div>
+              <div class="section-body">
+                <div class="loading-spinner" id="filesLoading">
+                  <div class="spinner"></div>
+                </div>
+                <table class="data-table" id="filesTable" style="display: none;">
+                  <thead>
+                    <tr>
+                      <th>File</th>
+                      <th>Size</th>
+                      <th>Modified</th>
+                      <th style="width: 150px;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="filesTableBody">
+                  </tbody>
+                </table>
+                <div class="empty-state" id="filesEmpty" style="display: none;">
+                  <div class="empty-state-icon">📄</div>
+                  <p>No files in this bucket</p>
+                  <p style="font-size: 0.75rem; margin-top: 0.5rem;">Click "Upload" to add files</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Create Bucket Modal -->
+          <div id="createBucketModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;">
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; width: 400px; max-width: 90vw;">
+              <h3 style="color: var(--text-primary); margin-bottom: 1rem;">Create Storage Bucket</h3>
+              <div class="form-group">
+                <label class="form-label">Bucket Name</label>
+                <input type="text" class="form-input" id="newBucketName" placeholder="e.g., images, documents, uploads">
+              </div>
+              <div id="newBucketError" style="color: var(--danger); font-size: 0.875rem; margin-bottom: 0.5rem;"></div>
+              <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                <button class="btn btn-secondary" id="cancelCreateBucket" style="flex: 1;">Cancel</button>
+                <button class="btn btn-primary" id="confirmCreateBucket" style="flex: 1;">Create</button>
               </div>
             </div>
           </div>
@@ -1372,28 +1442,200 @@
     
     // Load storage
     async function loadStorage() {
-      const loading = document.getElementById('storageLoading');
-      const list = document.getElementById('storageList');
-      const empty = document.getElementById('storageEmpty');
+      const listView = document.getElementById('bucketListView');
+      const detailView = document.getElementById('bucketDetailView');
+      const loading = document.getElementById('bucketLoading');
+      const table = document.getElementById('bucketTable');
+      const empty = document.getElementById('bucketEmpty');
+      const tbody = document.getElementById('bucketTableBody');
+      
+      // Show list view
+      listView.style.display = 'block';
+      detailView.style.display = 'none';
       
       const data = await apiGet('/api/admin/storage');
       
       loading.style.display = 'none';
       
-      if (data && data.files && data.files.length > 0) {
-        list.style.display = 'block';
-        list.innerHTML = data.files.map(file => `
-          <li class="folder-item">
-            <a href="/api/storage/${file.bucket}/${file.name}" class="folder-link" target="_blank">
-              📄 ${file.name}
-              <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: auto;">${formatBytes(file.size)}</span>
-            </a>
-          </li>
+      if (data && data.buckets && data.buckets.length > 0) {
+        table.style.display = 'table';
+        tbody.innerHTML = data.buckets.map(bucket => `
+          <tr>
+            <td><strong>📁 ${bucket.name}</strong></td>
+            <td>${bucket.fileCount}</td>
+            <td>${formatBytes(bucket.totalSize)}</td>
+            <td>
+              <button class="btn btn-primary" onclick="openBucket('${bucket.name}')">Browse</button>
+            </td>
+          </tr>
         `).join('');
       } else {
         empty.style.display = 'block';
       }
     }
+    
+    // Current bucket state
+    let currentBucketName = null;
+    
+    // Open a bucket and show its files
+    async function openBucket(bucketName) {
+      currentBucketName = bucketName;
+      
+      const listView = document.getElementById('bucketListView');
+      const detailView = document.getElementById('bucketDetailView');
+      const loading = document.getElementById('filesLoading');
+      const table = document.getElementById('filesTable');
+      const empty = document.getElementById('filesEmpty');
+      const tbody = document.getElementById('filesTableBody');
+      const title = document.getElementById('bucketDetailTitle');
+      
+      // Show detail view
+      listView.style.display = 'none';
+      detailView.style.display = 'block';
+      
+      title.textContent = bucketName;
+      loading.style.display = 'flex';
+      table.style.display = 'none';
+      empty.style.display = 'none';
+      
+      const data = await apiGet(`/api/admin/storage/${bucketName}`);
+      
+      loading.style.display = 'none';
+      
+      if (data && data.files && data.files.length > 0) {
+        table.style.display = 'table';
+        tbody.innerHTML = data.files.map(file => `
+          <tr>
+            <td><code style="color: var(--accent);">${escapeHtml(file.name)}</code></td>
+            <td>${formatBytes(file.size)}</td>
+            <td>${formatDate(file.modified)}</td>
+            <td>
+              <button class="btn btn-secondary" onclick="downloadFile('${bucketName}', '${escapeHtml(file.name)}')">↓ Download</button>
+              <button class="btn btn-secondary" style="color: var(--danger); margin-left: 0.25rem;" onclick="deleteFile('${bucketName}', '${escapeHtml(file.name)}')">🗑️</button>
+            </td>
+          </tr>
+        `).join('');
+      } else {
+        empty.style.display = 'block';
+      }
+    }
+    
+    // Make functions available globally
+    window.openBucket = openBucket;
+    
+    // Back to bucket list
+    document.getElementById('backToBuckets').addEventListener('click', () => {
+      loadStorage();
+    });
+    
+    // Download file
+    window.downloadFile = async function(bucket, key) {
+      const res = await fetch(`/api/admin/storage/${bucket}/${encodeURIComponent(key)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = key.split('/').pop();
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to download file');
+      }
+    };
+    
+    // Delete file
+    window.deleteFile = async function(bucket, key) {
+      if (!confirm(`Delete file "${key}"?`)) return;
+      
+      const res = await fetch(`/api/admin/storage/${bucket}/${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (res.ok) {
+        openBucket(bucket);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete file');
+      }
+    };
+    
+    // File upload
+    const fileUploadInput = document.getElementById('fileUpload');
+    fileUploadInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const res = await fetch(`/api/admin/storage/${currentBucketName}/${encodeURIComponent(file.name)}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: file,
+      });
+      
+      if (res.ok) {
+        openBucket(currentBucketName);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to upload file');
+      }
+      
+      // Reset input
+      e.target.value = '';
+    });
+    
+    // Create bucket modal
+    const createBucketBtn = document.getElementById('createBucketBtn');
+    const createBucketModal = document.getElementById('createBucketModal');
+    const cancelCreateBucket = document.getElementById('cancelCreateBucket');
+    const confirmCreateBucket = document.getElementById('confirmCreateBucket');
+    const newBucketName = document.getElementById('newBucketName');
+    const newBucketError = document.getElementById('newBucketError');
+    
+    createBucketBtn.addEventListener('click', () => {
+      newBucketName.value = '';
+      newBucketError.textContent = '';
+      createBucketModal.style.display = 'flex';
+    });
+    
+    cancelCreateBucket.addEventListener('click', () => {
+      createBucketModal.style.display = 'none';
+    });
+    
+    confirmCreateBucket.addEventListener('click', async () => {
+      const name = newBucketName.value.trim();
+      
+      if (!name) {
+        newBucketError.textContent = 'Bucket name is required';
+        return;
+      }
+      
+      const res = await fetch('/api/storage/' + encodeURIComponent(name), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        createBucketModal.style.display = 'none';
+        loadStorage();
+      } else {
+        newBucketError.textContent = data.error || 'Failed to create bucket';
+      }
+    });
     
     // Load Settings tab - API Keys
     async function loadApiKeys() {
