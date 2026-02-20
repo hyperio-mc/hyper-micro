@@ -89,6 +89,15 @@ export function createApp(): Hono {
     });
   });
 
+  // Root endpoint
+  app.get('/', (c) => {
+    return c.json({
+      name: 'hyper',
+      version: '1.0.0',
+      status: 'ok',
+    });
+  });
+
   // Mount auth API (no auth required for creating keys)
   app.route('/api/auth', authApi);
 
