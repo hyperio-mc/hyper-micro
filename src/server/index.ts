@@ -12,6 +12,7 @@ import { dataApi, storageApi, authApi } from '../api/index.js';
 import { validateApiKey } from '../db/index.js';
 import { adminAuthMiddleware, isAdminAuthConfigured } from '../middleware/adminAuth.js';
 import { adminAuthRoutes } from '../routes/adminAuth.js';
+import { adminRoutes } from '../routes/admin.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -164,6 +165,9 @@ export function createApp(): Hono {
   // Apply admin auth middleware to admin routes (must come before API key middleware)
   // Admin routes require JWT token from /api/login
   app.use('/api/admin/*', adminAuthMiddleware);
+
+  // Mount admin API routes (protected by adminAuthMiddleware)
+  app.route('/api/admin', adminRoutes);
 
   // Apply API key auth middleware to other protected routes
   app.use('/api/*', authMiddleware);
