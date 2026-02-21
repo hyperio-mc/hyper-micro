@@ -6,6 +6,7 @@ import { serve } from '@hono/node-server';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { z } from 'zod';
 import { initializeLmdb } from '../db/index.js';
 import { initializeStorage } from '../api/storage.js';
 import { dataApi, storageApi, authApi } from '../api/index.js';
@@ -45,6 +46,45 @@ export function loadConfig(): EnvConfig {
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
     JWT_SECRET: process.env.JWT_SECRET,
   };
+}
+
+/**
+ * Validates API keys in production environment.
+ * Refuses to start if default/insecure keys are detected.
+ * @throws Error if insecure API keys are detected in production
+ */
+export function validateProductionApiKeys(config: EnvConfig): void {
+  if (config.NODE_ENV === 'production') {
+    const insecureKeys = config.API_KEYS.filter(key => 
+      key.startsWith('dev-') || 
+      key === 'dev-key-change-in-production' ||
+      key.length < 20
+    );
+    
+    if (insecureKeys.length > 0) {
+      console.error('❌ SECURITY ERROR: Insecure API keys detected in production!');
+      console.error('The following keys are insecure:');
+      insecureKeys.forEach(key => {
+        const reason = key.startsWith('dev-') 
+          ? 'starts with "dev-"'
+          : key === 'dev-key-change-in-production'
+            ? 'is the default dev key'
+            : 'is too short (minimum 20 characters)';
+        console.error(`  - "${key.substring(0, 8)}..." ${reason}`);
+      });
+      console.error('\nSet the API_KEYS environment variable with secure keys:');
+      console.error('  API_KEYS=your-secure-key-1,your-secure-key-2');
+      console.error('\nSecure keys should:');
+      console.error('  - Be at least 20 characters long');
+      console.error('  - Not start with "dev-"');
+      console.error('  - Be randomly generated');
+      throw new Error('Insecure API keys detected in production environment');
+    }
+  } else {
+    // Development warning
+    console.log('⚠️  Running in development mode with potentially insecure API keys.');
+    console.log('⚠️  Set proper API_KEYS for production!');
+  }
 }
 
 // Auth middleware for API key authentication
@@ -238,6 +278,9 @@ export function createApp(): Hono {
 
 // Start server function
 export async function startServer(app: Hono, config: EnvConfig) {
+  // Validate API keys before starting
+  validateProductionApiKeys(config);
+  
   // Initialize LMDB
   console.log('📦 Initializing LMDB...');
   await initializeLmdb({

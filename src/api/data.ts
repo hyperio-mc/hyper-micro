@@ -45,6 +45,14 @@ import {
   listDocuments,
   databaseExists 
 } from '../db/index.js';
+import { 
+  safeValidate,
+  resourceNameSchema,
+  documentKeySchema,
+  createDocBodySchema,
+  updateDocBodySchema,
+  limitSchema
+} from '../validation/schemas.js';
 
 /** Hono router for data API endpoints */
 export const dataApi = new Hono();
@@ -73,19 +81,12 @@ dataApi.post('/dbs/:db', async (c) => {
   try {
     const dbName = c.req.param('db');
     
-    // Validate database name
-    if (!dbName || dbName.trim() === '') {
+    // Validate database name with Zod
+    const validation = safeValidate(resourceNameSchema, dbName);
+    if (!validation.success) {
       return c.json({
         ok: false,
-        error: 'Database name is required'
-      }, 400);
-    }
-    
-    // Sanitize name (basic validation)
-    if (!/^[a-zA-Z0-9_-]+$/.test(dbName)) {
-      return c.json({
-        ok: false,
-        error: 'Database name can only contain letters, numbers, underscores, and hyphens'
+        error: validation.error
       }, 400);
     }
     
@@ -126,10 +127,12 @@ dataApi.delete('/dbs/:db', async (c) => {
   try {
     const dbName = c.req.param('db');
     
-    if (!dbName) {
+    // Validate database name with Zod
+    const validation = safeValidate(resourceNameSchema, dbName);
+    if (!validation.success) {
       return c.json({
         ok: false,
-        error: 'Database name is required'
+        error: validation.error
       }, 400);
     }
     
@@ -206,15 +209,17 @@ dataApi.post('/dbs/:db/docs', async (c) => {
   try {
     const dbName = c.req.param('db');
     
-    if (!dbName) {
+    // Validate database name with Zod
+    const dbValidation = safeValidate(resourceNameSchema, dbName);
+    if (!dbValidation.success) {
       return c.json({
         ok: false,
-        error: 'Database name is required'
+        error: dbValidation.error
       }, 400);
     }
     
     // Parse request body
-    let body: { key?: string; value?: any };
+    let body: unknown;
     try {
       body = await c.req.json();
     } catch {
@@ -224,25 +229,20 @@ dataApi.post('/dbs/:db/docs', async (c) => {
       }, 400);
     }
     
-    // Validate key
-    if (!body.key || typeof body.key !== 'string') {
+    // Validate body with Zod
+    const bodyValidation = safeValidate(createDocBodySchema, body);
+    if (!bodyValidation.success) {
       return c.json({
         ok: false,
-        error: 'Document key is required and must be a string'
+        error: bodyValidation.error
       }, 400);
     }
     
-    // Validate value exists
-    if (body.value === undefined) {
-      return c.json({
-        ok: false,
-        error: 'Document value is required'
-      }, 400);
-    }
+    const { key, value } = bodyValidation.data;
     
     // Create the document
     try {
-      await createDocument(dbName, body.key, body.value);
+      await createDocument(dbName, key, value);
     } catch (err) {
       if (err instanceof Error && err.message.includes('already exists')) {
         return c.json({
@@ -255,7 +255,7 @@ dataApi.post('/dbs/:db/docs', async (c) => {
     
     return c.json({
       ok: true,
-      key: body.key
+      key
     }, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to create document';
@@ -287,17 +287,21 @@ dataApi.get('/dbs/:db/docs/:id', async (c) => {
     const dbName = c.req.param('db');
     const key = c.req.param('id');
     
-    if (!dbName) {
+    // Validate database name with Zod
+    const dbValidation = safeValidate(resourceNameSchema, dbName);
+    if (!dbValidation.success) {
       return c.json({
         ok: false,
-        error: 'Database name is required'
+        error: dbValidation.error
       }, 400);
     }
     
-    if (!key) {
+    // Validate document key with Zod
+    const keyValidation = safeValidate(documentKeySchema, key);
+    if (!keyValidation.success) {
       return c.json({
         ok: false,
-        error: 'Document key is required'
+        error: keyValidation.error
       }, 400);
     }
     
@@ -351,22 +355,26 @@ dataApi.put('/dbs/:db/docs/:id', async (c) => {
     const dbName = c.req.param('db');
     const key = c.req.param('id');
     
-    if (!dbName) {
+    // Validate database name with Zod
+    const dbValidation = safeValidate(resourceNameSchema, dbName);
+    if (!dbValidation.success) {
       return c.json({
         ok: false,
-        error: 'Database name is required'
+        error: dbValidation.error
       }, 400);
     }
     
-    if (!key) {
+    // Validate document key with Zod
+    const keyValidation = safeValidate(documentKeySchema, key);
+    if (!keyValidation.success) {
       return c.json({
         ok: false,
-        error: 'Document key is required'
+        error: keyValidation.error
       }, 400);
     }
     
     // Parse request body
-    let body: { value?: any };
+    let body: unknown;
     try {
       body = await c.req.json();
     } catch {
@@ -376,17 +384,18 @@ dataApi.put('/dbs/:db/docs/:id', async (c) => {
       }, 400);
     }
     
-    // Validate value exists
-    if (body.value === undefined) {
+    // Validate body with Zod
+    const bodyValidation = safeValidate(updateDocBodySchema, body);
+    if (!bodyValidation.success) {
       return c.json({
         ok: false,
-        error: 'Document value is required'
+        error: bodyValidation.error
       }, 400);
     }
     
     // Update the document
     try {
-      await updateDocument(dbName, key, body.value);
+      await updateDocument(dbName, key, bodyValidation.data.value);
     } catch (err) {
       if (err instanceof Error && err.message.includes('not found')) {
         return c.json({
@@ -430,17 +439,21 @@ dataApi.delete('/dbs/:db/docs/:id', async (c) => {
     const dbName = c.req.param('db');
     const key = c.req.param('id');
     
-    if (!dbName) {
+    // Validate database name with Zod
+    const dbValidation = safeValidate(resourceNameSchema, dbName);
+    if (!dbValidation.success) {
       return c.json({
         ok: false,
-        error: 'Database name is required'
+        error: dbValidation.error
       }, 400);
     }
     
-    if (!key) {
+    // Validate document key with Zod
+    const keyValidation = safeValidate(documentKeySchema, key);
+    if (!keyValidation.success) {
       return c.json({
         ok: false,
-        error: 'Document key is required'
+        error: keyValidation.error
       }, 400);
     }
     
@@ -501,10 +514,12 @@ dataApi.get('/dbs/:db/docs', async (c) => {
   try {
     const dbName = c.req.param('db');
     
-    if (!dbName) {
+    // Validate database name with Zod
+    const dbValidation = safeValidate(resourceNameSchema, dbName);
+    if (!dbValidation.success) {
       return c.json({
         ok: false,
-        error: 'Database name is required'
+        error: dbValidation.error
       }, 400);
     }
     
@@ -514,17 +529,17 @@ dataApi.get('/dbs/:db/docs', async (c) => {
     const limitStr = c.req.query('limit');
     const prefix = c.req.query('prefix');
     
-    // Parse limit
+    // Parse and validate limit
     let limit: number | undefined;
     if (limitStr) {
-      const parsed = parseInt(limitStr, 10);
-      if (isNaN(parsed) || parsed < 1) {
+      const limitValidation = safeValidate(limitSchema, parseInt(limitStr, 10));
+      if (!limitValidation.success) {
         return c.json({
           ok: false,
-          error: 'limit must be a positive integer'
+          error: limitValidation.error
         }, 400);
       }
-      limit = Math.min(parsed, 10000); // Cap at 10000
+      limit = limitValidation.data;
     }
     
     // Query documents

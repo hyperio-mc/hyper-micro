@@ -39,6 +39,12 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync, createReadStream, createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
+import { 
+  safeValidate,
+  resourceNameSchema,
+  fileKeySchema,
+  limitSchema
+} from '../validation/schemas.js';
 
 /**
  * Configuration options for storage initialization.
@@ -98,31 +104,85 @@ export function getStoragePath(): string {
 }
 
 /**
+ * Validates that a bucket or key name does not contain path traversal attempts.
+ * Throws an error if path traversal is detected.
+ * 
+ * @param name - The bucket or key name to validate
+ * @param type - 'bucket' or 'key' for error messages
+ * @throws Error if path traversal is detected
+ * @internal
+ */
+function validateNoPathTraversal(name: string, type: 'bucket' | 'key'): void {
+  // Check for path traversal patterns
+  if (name.includes('..') || name.includes('/') || name.includes('\\')) {
+    throw new Error(`Invalid ${type} name: path traversal attempt detected`);
+  }
+  
+  // Check for null bytes which can be used for path traversal
+  if (name.includes('\0')) {
+    throw new Error(`Invalid ${type} name: null byte detected`);
+  }
+}
+
+/**
  * Gets the full file system path for a bucket and key.
- * Sanitizes names to prevent path traversal attacks.
+ * Validates names to prevent path traversal attacks.
  * 
  * @param bucket - Bucket name
  * @param key - File key
  * @returns Full file system path
+ * @throws Error if path traversal is detected
  * @internal
  */
 function getFilePath(bucket: string, key: string): string {
-  // Sanitize bucket and key to prevent path traversal
+  // Validate for path traversal attempts
+  validateNoPathTraversal(bucket, 'bucket');
+  validateNoPathTraversal(key, 'key');
+  
+  // Sanitize bucket and key to only allow safe characters
   const safeBucket = bucket.replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeKey = key.replace(/[^a-zA-Z0-9_.-]/g, '_');
-  return path.join(storagePath, safeBucket, safeKey);
+  
+  // Construct the path and resolve it
+  const bucketPath = path.join(storagePath, safeBucket);
+  const filePath = path.join(bucketPath, safeKey);
+  
+  // Verify the resolved path is still within the storage directory
+  const resolvedPath = path.resolve(filePath);
+  const resolvedStoragePath = path.resolve(storagePath);
+  
+  if (!resolvedPath.startsWith(resolvedStoragePath)) {
+    throw new Error('Invalid path: resolved path escapes storage directory');
+  }
+  
+  return filePath;
 }
 
 /**
  * Gets the file system path for a bucket.
+ * Validates bucket name to prevent path traversal attacks.
  * 
  * @param bucket - Bucket name
  * @returns Bucket directory path
+ * @throws Error if path traversal is detected
  * @internal
  */
 function getBucketPath(bucket: string): string {
+  // Validate for path traversal attempts
+  validateNoPathTraversal(bucket, 'bucket');
+  
   const safeBucket = bucket.replace(/[^a-zA-Z0-9_-]/g, '_');
-  return path.join(storagePath, safeBucket);
+  const bucketPath = path.join(storagePath, safeBucket);
+  
+  // Verify the resolved path is still within the storage directory
+  const resolvedPath = path.resolve(bucketPath);
+  const resolvedStoragePath = path.resolve(storagePath);
+  
+  if (!resolvedPath.startsWith(resolvedStoragePath)) {
+    throw new Error('Invalid bucket: resolved path escapes storage directory');
+  }
+  
+  return bucketPath;
 }
 
 /**
@@ -165,10 +225,12 @@ storageApi.post('/:bucket', async (c) => {
   try {
     const bucket = c.req.param('bucket');
     
-    if (!bucket || bucket.trim() === '') {
+    // Validate bucket name with Zod
+    const validation = safeValidate(resourceNameSchema, bucket);
+    if (!validation.success) {
       return c.json({
         ok: false,
-        error: 'Bucket name is required'
+        error: validation.error
       }, 400);
     }
     
@@ -216,10 +278,12 @@ storageApi.delete('/:bucket', async (c) => {
   try {
     const bucket = c.req.param('bucket');
     
-    if (!bucket) {
+    // Validate bucket name with Zod
+    const validation = safeValidate(resourceNameSchema, bucket);
+    if (!validation.success) {
       return c.json({
         ok: false,
-        error: 'Bucket name is required'
+        error: validation.error
       }, 400);
     }
     
@@ -325,10 +389,21 @@ storageApi.put('/:bucket/:key', async (c) => {
     const key = c.req.param('key');
     const contentType = c.req.header('Content-Type') || 'application/octet-stream';
     
-    if (!bucket || !key) {
+    // Validate bucket name with Zod
+    const bucketValidation = safeValidate(resourceNameSchema, bucket);
+    if (!bucketValidation.success) {
       return c.json({
         ok: false,
-        error: 'Bucket and key are required'
+        error: `Bucket: ${bucketValidation.error}`
+      }, 400);
+    }
+    
+    // Validate file key with Zod
+    const keyValidation = safeValidate(fileKeySchema, key);
+    if (!keyValidation.success) {
+      return c.json({
+        ok: false,
+        error: `Key: ${keyValidation.error}`
       }, 400);
     }
     
@@ -396,10 +471,21 @@ storageApi.get('/:bucket/:key', async (c) => {
     const bucket = c.req.param('bucket');
     const key = c.req.param('key');
     
-    if (!bucket || !key) {
+    // Validate bucket name with Zod
+    const bucketValidation = safeValidate(resourceNameSchema, bucket);
+    if (!bucketValidation.success) {
       return c.json({
         ok: false,
-        error: 'Bucket and key are required'
+        error: `Bucket: ${bucketValidation.error}`
+      }, 400);
+    }
+    
+    // Validate file key with Zod
+    const keyValidation = safeValidate(fileKeySchema, key);
+    if (!keyValidation.success) {
+      return c.json({
+        ok: false,
+        error: `Key: ${keyValidation.error}`
       }, 400);
     }
     

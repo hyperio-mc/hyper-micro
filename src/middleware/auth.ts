@@ -4,13 +4,67 @@
  */
 
 import { Context, Next } from 'hono';
-import { createHash } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 
 /**
  * Hash an API key using SHA256
  */
 export function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex');
+}
+
+/**
+ * Timing-safe comparison of two strings.
+ * Prevents timing attacks by ensuring consistent comparison time
+ * regardless of where the mismatch occurs.
+ * 
+ * @param a - First string to compare
+ * @param b - Second string to compare
+ * @returns true if strings are equal, false otherwise
+ */
+function safeCompare(a: string, b: string): boolean {
+  // Handle edge cases
+  if (a.length !== b.length) {
+    // Still perform a comparison to maintain timing consistency
+    // Use the longer string's length to avoid leaking length info
+    const maxLen = Math.max(a.length, b.length);
+    const paddedA = a.padEnd(maxLen, '\0');
+    const paddedB = b.padEnd(maxLen, '\0');
+    try {
+      return timingSafeEqual(Buffer.from(paddedA), Buffer.from(paddedB)) && a.length === b.length;
+    } catch {
+      return false;
+    }
+  }
+
+  try {
+    return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a candidate key matches any of the valid keys using timing-safe comparison.
+ * 
+ * @param candidate - The key to validate
+ * @param validKeys - Array of valid keys to compare against
+ * @returns true if candidate matches any valid key
+ */
+function validateKeyTimingSafe(candidate: string, validKeys: string[]): boolean {
+  if (!candidate || validKeys.length === 0) {
+    return false;
+  }
+  
+  // Compare against all keys to maintain consistent timing
+  let isValid = false;
+  for (const key of validKeys) {
+    if (safeCompare(candidate, key)) {
+      isValid = true;
+      // Continue checking all keys to maintain consistent timing
+    }
+  }
+  return isValid;
 }
 
 /**
@@ -52,7 +106,8 @@ export async function authMiddleware(c: Context, next: Next) {
   // Get valid keys from context (set by server)
   const validKeys = c.get('validKeys') || [];
   
-  if (!validKeys.includes(apiKey)) {
+  // Use timing-safe comparison to prevent timing attacks
+  if (!validateKeyTimingSafe(apiKey, validKeys)) {
     return c.json(
       {
         ok: false,

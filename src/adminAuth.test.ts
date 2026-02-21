@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest';
 import {
   generateAdminToken,
   verifyAdminToken,
@@ -6,13 +6,22 @@ import {
   getAdminAuthConfig,
   AdminJwtPayload
 } from './middleware/adminAuth.js';
+import { adminAuthRoutes } from './routes/adminAuth.js';
 import { Hono } from 'hono';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 describe('Admin Auth', () => {
   const originalEnv = process.env;
   const testSecret = 'test-secret-key-for-jwt-signing';
   const testEmail = 'admin@test.com';
+  const testPassword = 'testpassword123';
+  let testPasswordHash: string;
+
+  beforeAll(async () => {
+    // Generate a real bcrypt hash for testing
+    testPasswordHash = await bcrypt.hash(testPassword, 10);
+  });
 
   beforeEach(() => {
     // Reset environment variables for each test
@@ -20,7 +29,7 @@ describe('Admin Auth', () => {
     process.env = { ...originalEnv };
     process.env.JWT_SECRET = testSecret;
     process.env.ADMIN_EMAIL = testEmail;
-    process.env.ADMIN_PASSWORD = '$2a$10$abcdefghijklmnopqrstuvwxABCDEFGHIJ'; // Mock bcrypt hash
+    process.env.ADMIN_PASSWORD = testPasswordHash;
   });
 
   afterEach(() => {

@@ -23,7 +23,7 @@
  * ```
  */
 
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import bcrypt from 'bcryptjs';
 import {
   getAdminAuthConfig,
@@ -31,6 +31,94 @@ import {
   generateAdminToken,
   verifyAdminToken,
 } from '../middleware/adminAuth.js';
+
+// ============================================
+// Rate Limiting for Login Endpoint
+// ============================================
+
+/**
+ * Simple in-memory rate limiter for login attempts.
+ * Limits: 5 attempts per minute per IP address.
+ */
+
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+// Map of IP -> rate limit entry
+const loginAttempts = new Map<string, RateLimitEntry>();
+
+// Rate limit configuration
+const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+
+/**
+ * Check if an IP is rate limited and get remaining attempts.
+ * Returns null if not limited, or the reset time if limited.
+ */
+function checkRateLimit(ip: string): { limited: false; remaining: number } | { limited: true; resetAt: number } {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  
+  // No entry or window expired - reset
+  if (!entry || now > entry.resetAt) {
+    return { limited: false, remaining: RATE_LIMIT_MAX_ATTEMPTS };
+  }
+  
+  // Check if limit exceeded
+  if (entry.count >= RATE_LIMIT_MAX_ATTEMPTS) {
+    return { limited: true, resetAt: entry.resetAt };
+  }
+  
+  return { limited: false, remaining: RATE_LIMIT_MAX_ATTEMPTS - entry.count };
+}
+
+/**
+ * Record a login attempt for an IP.
+ */
+function recordLoginAttempt(ip: string): void {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  
+  if (!entry || now > entry.resetAt) {
+    // Start new window
+    loginAttempts.set(ip, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
+  } else {
+    // Increment existing entry
+    entry.count++;
+  }
+}
+
+/**
+ * Get client IP address from request.
+ * Handles X-Forwarded-For header for proxied requests.
+ */
+function getClientIp(c: Context): string {
+  // Check X-Forwarded-For header first (for proxied requests)
+  const forwardedFor = c.req.header('X-Forwarded-For');
+  if (forwardedFor) {
+    // Take the first IP in the chain (original client)
+    return forwardedFor.split(',')[0].trim();
+  }
+  
+  // Fall back to direct connection IP
+  // Note: In Node.js, this may need to be extracted from the socket
+  return 'unknown';
+}
+
+// Periodic cleanup of old rate limit entries (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of loginAttempts.entries()) {
+    if (now > entry.resetAt) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
 
 /** Hono router for admin auth routes */
 export const adminAuthRoutes = new Hono();
@@ -43,11 +131,14 @@ export const adminAuthRoutes = new Hono();
  * Login with email and password.
  * Returns a JWT token valid for 24 hours.
  * 
+ * Rate limited: 5 attempts per minute per IP address.
+ * 
  * @route POST /api/login
  * @body { email: string, password: string }
  * @returns {Object} 200 - { ok: true, token: string, expiresAt: string }
  * @returns {Object} 400 - { ok: false, error: string } - Missing credentials
  * @returns {Object} 401 - { ok: false, error: string } - Invalid credentials
+ * @returns {Object} 429 - { ok: false, error: string } - Too many attempts
  * @returns {Object} 500 - { ok: false, error: string } - Auth not configured
  * 
  * @example
@@ -59,6 +150,22 @@ export const adminAuthRoutes = new Hono();
  */
 adminAuthRoutes.post('/login', async (c) => {
   try {
+    // Get client IP for rate limiting
+    const clientIp = getClientIp(c);
+    
+    // Check rate limit before processing
+    const rateLimitStatus = checkRateLimit(clientIp);
+    if (rateLimitStatus.limited) {
+      const retryAfter = Math.ceil((rateLimitStatus.resetAt - Date.now()) / 1000);
+      c.header('Retry-After', retryAfter.toString());
+      return c.json({
+        ok: false,
+        error: 'Too many login attempts',
+        message: `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
+        retryAfter,
+      }, 429);
+    }
+
     // Check if admin auth is configured
     if (!isAdminAuthConfigured()) {
       return c.json({
@@ -91,9 +198,15 @@ adminAuthRoutes.post('/login', async (c) => {
 
     // Check email matches
     if (body.email !== config.adminEmail) {
+      // Record failed attempt
+      recordLoginAttempt(clientIp);
+      const remaining = checkRateLimit(clientIp);
+      const remainingAttempts = remaining.limited ? 0 : remaining.remaining;
+      
       return c.json({
         ok: false,
         error: 'Invalid credentials',
+        remainingAttempts,
       }, 401);
     }
 
@@ -101,9 +214,15 @@ adminAuthRoutes.post('/login', async (c) => {
     const passwordMatch = await bcrypt.compare(body.password, config.adminPassword!);
     
     if (!passwordMatch) {
+      // Record failed attempt
+      recordLoginAttempt(clientIp);
+      const remaining = checkRateLimit(clientIp);
+      const remainingAttempts = remaining.limited ? 0 : remaining.remaining;
+      
       return c.json({
         ok: false,
         error: 'Invalid credentials',
+        remainingAttempts,
       }, 401);
     }
 
