@@ -18,6 +18,8 @@ One-click deploy to your favorite platform:
 [![Deploy to Railway](https://railway.com/button.svg)](https://railway.app/new?template=https://github.com/hyperio-mc/hyper-micro)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/hyperio-mc/hyper-micro)
 [![Deploy to Fly](https://fly.io/launch-with.svg)](https://fly.io/launch?repo=https://github.com/hyperio-mc/hyper-micro)
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/hyperio-mc/hyper-micro)
+[![Deploy to AWS](https://oneclick.amplifyapp.com/button.svg)](https://console.aws.amazon.com/amplify/home#/deploy?repo=https://github.com/hyperio-mc/hyper-micro)
 
 Or run locally:
 
