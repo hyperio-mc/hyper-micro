@@ -2,7 +2,24 @@
 
 A minimal Node.js + LMDB data and storage API server.
 
-## Quick Start
+**Live Demo:** https://desirable-beauty-production-d4d8.up.railway.app
+
+## Features
+
+- **Data API** — LMDB-backed key-value document store
+- **Storage API** — S3-compatible file storage  
+- **Auth API** — API key management
+- **Admin UI** — Web interface for managing databases, buckets, and keys at `/admin`
+
+## Deploy
+
+One-click deploy to your favorite platform:
+
+[![Deploy to Railway](https://railway.com/button.svg)](https://railway.app/new?template=https://github.com/hyperio-mc/hyper-micro)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/hyperio-mc/hyper-micro)
+[![Deploy to Fly](https://fly.io/launch-with.svg)](https://fly.io/launch?repo=https://github.com/hyperio-mc/hyper-micro)
+
+Or run locally:
 
 ```bash
 # Install dependencies
@@ -13,6 +30,20 @@ npm run dev
 
 # Server runs at http://localhost:3000
 ```
+
+## Admin UI
+
+The server includes a web admin interface at `/admin`. Use your admin API key to access:
+
+```
+GET /admin?key=your-admin-key
+```
+
+The admin UI lets you:
+- Browse databases and documents
+- Manage storage buckets and files
+- View and revoke API keys
+- Monitor server health and uptime
 
 ## API Endpoints
 
@@ -61,8 +92,11 @@ Default key: `dev-key-change-in-production`
 | LMDB_PATH | ./data/lmdb | LMDB data path |
 | STORAGE_PATH | ./data/storage | File storage path |
 | API_KEYS | dev-key-change-in-production | Comma-separated API keys |
+| ADMIN_KEY | | Admin UI access key (recommended for production) |
 
 ## Deployment
+
+**Live Demo:** https://desirable-beauty-production-d4d8.up.railway.app
 
 ### Railway (Recommended)
 
@@ -79,6 +113,8 @@ railway init
 # Deploy
 railway up
 ```
+
+Live demo runs on Railway at: https://desirable-beauty-production-d4d8.up.railway.app
 
 Set environment variables in Railway dashboard:
 - `PORT` = 8080 (Railway uses port 8080)
