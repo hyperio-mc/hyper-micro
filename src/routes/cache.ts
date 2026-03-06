@@ -84,6 +84,43 @@ export const cacheRoutes = new Hono();
 // Apply authentication middleware to all cache routes
 cacheRoutes.use('/*', cacheAuthMiddleware);
 
+// ============================================
+// HEAD /api/cache/:key - Check existence
+// ============================================
+
+/**
+ * Check if a key exists in the cache.
+ * Returns 200 if found, 404 if not found.
+ * Includes X-TTL header with remaining TTL in seconds (-1 if no TTL).
+ */
+cacheRoutes.on('HEAD', '/:key', async (c) => {
+  try {
+    const key = c.req.param('key');
+    const namespace = c.req.query('namespace');
+
+    const cache = getCacheService();
+    const exists = await cache.has(key, namespace);
+
+    if (!exists) {
+      return new Response(null, { status: 404 });
+    }
+
+    const ttl = await cache.getTtl(key, namespace);
+
+    return new Response(null, {
+      status: 200,
+      headers: { 'X-TTL': ttl.toString() }
+    });
+  } catch (err) {
+    console.error('HEAD /api/cache/:key error:', err);
+    return new Response(null, { status: 500 });
+  }
+});
+
+// ============================================
+// GET /api/cache/:key - Get value
+// ============================================
+
 /**
  * Get a value from the cache.
  * Returns the value and found status.
@@ -149,6 +186,9 @@ cacheRoutes.put('/:key', async (c) => {
   try {
     const key = c.req.param('key');
 
+    // Get namespace from query param (preferred) or body
+    const queryNamespace = c.req.query('namespace');
+
     let body: { value: unknown; ttl?: number; namespace?: string };
     try {
       body = await c.req.json();
@@ -173,8 +213,11 @@ cacheRoutes.put('/:key', async (c) => {
       }, 400);
     }
 
+    // Prefer query param namespace over body namespace
+    const namespace = queryNamespace || body.namespace;
+
     const cache = getCacheService();
-    await cache.set(key, body.value, body.ttl, body.namespace);
+    await cache.set(key, body.value, body.ttl, namespace);
 
     const response: { ok: boolean; key: string; ttl?: number } = {
       ok: true,
@@ -226,54 +269,6 @@ cacheRoutes.delete('/:key', async (c) => {
       ok: false,
       error: message,
     }, 500);
-  }
-});
-
-/**
- * Check if a key exists in the cache.
- * Returns 200 if found, 404 if not found.
- * Includes X-TTL header with remaining TTL in seconds (-1 if no TTL).
- *
- * @route HEAD /api/cache/:key
- * @returns {void} 200 - Key exists (X-TTL header)
- * @returns {void} 404 - Key not found
- *
- * @example
- * // Request
- * HEAD /api/cache/user:123?namespace=sessions
- * Authorization: Bearer <api-key>
- *
- * // Response (found)
- * HTTP/1.1 200 OK
- * X-TTL: 45
- *
- * // Response (not found)
- * HTTP/1.1 404 Not Found
- */
-cacheRoutes.on('HEAD', '/:key', async (c) => {
-  try {
-    const key = c.req.param('key');
-    const namespace = c.req.query('namespace');
-
-    const cache = getCacheService();
-    const exists = await cache.has(key, namespace);
-
-    if (!exists) {
-      // Return empty body with 404 status
-      return c.body(null, 404);
-    }
-
-    // Get TTL info
-    const ttl = await cache.getTtl(key, namespace);
-
-    // Set X-TTL header
-    // ttl is: -1 for permanent (no TTL), positive for remaining seconds
-    c.header('X-TTL', ttl.toString());
-
-    return c.body(null, 200);
-  } catch (err) {
-    console.error('HEAD /api/cache/:key error:', err);
-    return c.body(null, 500);
   }
 });
 
