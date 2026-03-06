@@ -289,8 +289,8 @@ Post completion to this room when done. Run: npm test
 
 | Task | Status | Agent | Commit |
 |------|--------|-------|--------|
-| 1.1.1 TTL Module | ⬜ Not started | — | — |
-| 1.1.2 TTL Tests | ⬜ Not started | — | — |
+| 1.1.1 TTL Module | ✅ Complete | main | b74e2f8 |
+| 1.1.2 TTL Tests | ✅ Complete | main | 25d8cc0 |
 | 1.2.1 CacheService | ⬜ Not started | — | — |
 | 1.2.2 CacheService Tests | ⬜ Not started | — | — |
 | 1.3.1 Cache Routes | ⬜ Not started | — | — |

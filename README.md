@@ -1,6 +1,6 @@
 # hyper-micro
 
-A minimal Node.js + LMDB data and storage API server.
+A minimal Node.js + LMDB data and storage API server. Compatible with scout-live's Cache Port interface.
 
 **Live Demo:** https://desirable-beauty-production-d4d8.up.railway.app
 
@@ -8,8 +8,25 @@ A minimal Node.js + LMDB data and storage API server.
 
 - **Data API** — LMDB-backed key-value document store
 - **Storage API** — S3-compatible file storage  
+- **Cache API** — TTL-aware caching with pattern matching, atomic increments, and batch operations
 - **Auth API** — API key management
 - **Admin UI** — Web interface for managing databases, buckets, and keys at `/admin`
+
+## Scout-live Integration
+
+hyper-micro implements the [scout-live CacheAdapter interface](https://github.com/scoutos-labs/scout-live), making it a drop-in cache backend for scout-live deployments:
+
+```typescript
+import { HyperMicroCacheAdapter } from 'scout-live/adapters';
+
+const cache = new HyperMicroCacheAdapter({
+  url: 'https://your-hyper-micro-instance.com',
+  apiKey: 'your-api-key'
+});
+
+// Use with scout-live gateway
+gateway.registerAdapter('cache', 'hyper-micro', cache);
+```
 
 ## Deploy
 
@@ -70,6 +87,17 @@ The admin UI lets you:
 - `GET /api/storage/:bucket/:key` - Download file
 - `DELETE /api/storage/:bucket/:key` - Delete file
 - `GET /api/storage/:bucket` - List files
+
+### Cache API (Scout-live Compatible)
+- `GET /api/cache/:key` - Get value `{ value, found }`
+- `PUT /api/cache/:key` - Set value with optional TTL `{ value, ttl? }`
+- `DELETE /api/cache/:key` - Delete key `{ deleted }`
+- `HEAD /api/cache/:key` - Check existence (returns `X-TTL` header)
+- `POST /api/cache/keys` - List keys matching pattern `{ pattern, limit?, cursor? }`
+- `POST /api/cache/incr/:key` - Increment numeric value `{ by? }`
+- `POST /api/cache/batch` - Batch operations `{ operations[] }`
+- `GET /api/cache/:key/ttl` - Get remaining TTL `{ ttl }`
+- `GET /api/cache/health` - Health check `{ ok, latencyMs }`
 
 ### Auth
 - `POST /api/auth` - Generate API key
