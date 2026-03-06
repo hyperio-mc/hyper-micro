@@ -189,4 +189,82 @@ cacheRoutes.delete('/:key', async (c) => {
   }
 });
 
+// ============================================
+// POST /api/cache/:key/increment - Increment value
+// ============================================
+
+/**
+ * Increment a numeric value atomically.
+ * Body: { by?: number } (default: 1)
+ * Returns { value: number }
+ */
+cacheRoutes.post('/:key/increment', async (c) => {
+  try {
+    const key = c.req.param('key');
+    const namespace = c.req.query('namespace');
+
+    let body: { by?: number } = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      // Empty body is valid (use default)
+    }
+
+    const by = body.by ?? 1;
+    if (typeof by !== 'number' || !Number.isFinite(by)) {
+      return c.json({ ok: false, error: 'by must be a finite number' }, 400);
+    }
+
+    const cache = getCacheService();
+    const value = await cache.incr(key, by, namespace);
+
+    return c.json({ value });
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('non-numeric')) {
+      return c.json({ ok: false, error: err.message }, 400);
+    }
+    const message = err instanceof Error ? err.message : 'Failed to increment value';
+    return c.json({ ok: false, error: message }, 500);
+  }
+});
+
+// ============================================
+// POST /api/cache/:key/decrement - Decrement value
+// ============================================
+
+/**
+ * Decrement a numeric value atomically.
+ * Body: { by?: number } (default: 1)
+ * Returns { value: number }
+ */
+cacheRoutes.post('/:key/decrement', async (c) => {
+  try {
+    const key = c.req.param('key');
+    const namespace = c.req.query('namespace');
+
+    let body: { by?: number } = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      // Empty body is valid (use default)
+    }
+
+    const by = body.by ?? 1;
+    if (typeof by !== 'number' || !Number.isFinite(by)) {
+      return c.json({ ok: false, error: 'by must be a finite number' }, 400);
+    }
+
+    const cache = getCacheService();
+    const value = await cache.decr(key, by, namespace);
+
+    return c.json({ value });
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('non-numeric')) {
+      return c.json({ ok: false, error: err.message }, 400);
+    }
+    const message = err instanceof Error ? err.message : 'Failed to decrement value';
+    return c.json({ ok: false, error: message }, 500);
+  }
+});
+
 export default cacheRoutes;

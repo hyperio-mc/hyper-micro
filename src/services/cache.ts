@@ -195,6 +195,87 @@ export class CacheService {
   }
 
   /**
+   * Increments a numeric value atomically.
+   * Initializes to 0 if key doesn't exist.
+   * Throws error if value exists but is not a number.
+   *
+   * @param key - The key to increment
+   * @param by - Amount to increment by (default: 1)
+   * @param namespace - Optional namespace for the key
+   * @returns Promise resolving to the new value after increment
+   *
+   * @example
+   * ```typescript
+   * const newValue = await cache.incr('counter', 1); // 0 -> 1
+   * const added = await cache.incr('counter', 5);   // 1 -> 6
+   * ```
+   */
+  async incr(key: string, by: number = 1, namespace?: string): Promise<number> {
+    const storageKey = this.buildKey(key, namespace);
+
+    // Use LMDB transaction for atomicity
+    return this.db.transaction(() => {
+      const currentValue = this.db.get(storageKey);
+
+      // If doesn't exist, initialize to 0
+      if (currentValue === undefined) {
+        this.db.put(storageKey, by);
+        return by;
+      }
+
+      // Validate it's a number
+      if (typeof currentValue !== 'number') {
+        throw new Error(`Cannot increment non-numeric value. Key '${key}' contains ${typeof currentValue}`);
+      }
+
+      const newValue = currentValue + by;
+      this.db.put(storageKey, newValue);
+      return newValue;
+    });
+  }
+
+  /**
+   * Decrements a numeric value atomically.
+   * Initializes to 0 if key doesn't exist.
+   * Throws error if value exists but is not a number.
+   *
+   * @param key - The key to decrement
+   * @param by - Amount to decrement by (default: 1)
+   * @param namespace - Optional namespace for the key
+   * @returns Promise resolving to the new value after decrement
+   *
+   * @example
+   * ```typescript
+   * const counter = await cache.incr('counter', 5);  // 0 -> 5
+   * const newValue = await cache.decr('counter', 1); // 5 -> 4
+   * ```
+   */
+  async decr(key: string, by: number = 1, namespace?: string): Promise<number> {
+    const storageKey = this.buildKey(key, namespace);
+
+    // Use LMDB transaction for atomicity
+    return this.db.transaction(() => {
+      const currentValue = this.db.get(storageKey);
+
+      // If doesn't exist, initialize to 0
+      if (currentValue === undefined) {
+        const newValue = -by;
+        this.db.put(storageKey, newValue);
+        return newValue;
+      }
+
+      // Validate it's a number
+      if (typeof currentValue !== 'number') {
+        throw new Error(`Cannot decrement non-numeric value. Key '${key}' contains ${typeof currentValue}`);
+      }
+
+      const newValue = currentValue - by;
+      this.db.put(storageKey, newValue);
+      return newValue;
+    });
+  }
+
+  /**
    * Gets the remaining TTL for a key in seconds.
    *
    * @param key - The key to check
