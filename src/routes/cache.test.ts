@@ -115,12 +115,12 @@ describe('Cache API Routes', () => {
       });
     });
 
-    describe('PUT /api/cache/:key', () => {
+    describe('POST /api/cache/set', () => {
       it('should return 401 without Authorization header', async () => {
-        const res = await app.request('/api/cache/test-key', {
+        const res = await app.request('/api/cache/set', {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ value: 'test' })
+          body: JSON.stringify({ key: 'test-key', value: 'test' })
         });
         expect(res.status).toBe(401);
 
@@ -129,13 +129,13 @@ describe('Cache API Routes', () => {
       });
 
       it('should return 401 with invalid API key', async () => {
-        const res = await app.request('/api/cache/test-key', {
+        const res = await app.request('/api/cache/set', {
           method: "POST",
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer invalid-key'
           },
-          body: JSON.stringify({ value: 'test' })
+          body: JSON.stringify({ key: 'test-key', value: 'test' })
         });
         expect(res.status).toBe(401);
       });
@@ -161,17 +161,14 @@ describe('Cache API Routes', () => {
       });
     });
 
-    describe('HEAD /api/cache/:key', () => {
+    describe('GET /api/cache/:key/exists', () => {
       it('should return 401 without Authorization header', async () => {
-        const res = await app.request('/api/cache/test-key', {
-          method: 'HEAD'
-        });
+        const res = await app.request('/api/cache/test-key/exists');
         expect(res.status).toBe(401);
       });
 
       it('should return 401 with invalid API key', async () => {
-        const res = await app.request('/api/cache/test-key', {
-          method: 'HEAD',
+        const res = await app.request('/api/cache/test-key/exists', {
           headers: { 'Authorization': 'Bearer invalid-key' }
         });
         expect(res.status).toBe(401);
@@ -199,13 +196,13 @@ describe('Cache API Routes', () => {
 
     it('should return { value, found: true } for existing key', async () => {
       // First store a value
-      await app.request('/api/cache/mykey', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'stored-value' }),
+        body: JSON.stringify({ key: 'mykey', value: 'stored-value' }),
       });
 
       // Then retrieve it
@@ -235,13 +232,13 @@ describe('Cache API Routes', () => {
       };
 
       // Store complex object
-      await app.request('/api/cache/complex', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: complexValue }),
+        body: JSON.stringify({ key: 'complex', value: complexValue }),
       });
 
       // Retrieve it
@@ -257,13 +254,13 @@ describe('Cache API Routes', () => {
 
     it('should handle URL-encoded keys', async () => {
       // Store with key containing special characters
-      await app.request('/api/cache/user:123', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'user-data' }),
+        body: JSON.stringify({ key: 'user:123', value: 'user-data' }),
       });
 
       // Retrieve it
@@ -279,18 +276,18 @@ describe('Cache API Routes', () => {
   });
 
   // ============================================
-  // PUT /api/cache/:key
+  // POST /api/cache/set
   // ============================================
 
-  describe('PUT /api/cache/:key', () => {
+  describe('POST /api/cache/set', () => {
     it('should store value and return { ok, key }', async () => {
-      const res = await app.request('/api/cache/newkey', {
+      const res = await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'my-value' }),
+        body: JSON.stringify({ key: 'newkey', value: 'my-value' }),
       });
 
       expect(res.status).toBe(200);
@@ -302,13 +299,13 @@ describe('Cache API Routes', () => {
     });
 
     it('should store value with TTL and return ttl in response', async () => {
-      const res = await app.request('/api/cache/ttlkey', {
+      const res = await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'expires-soon', ttl: 3600 }),
+        body: JSON.stringify({ key: 'ttlkey', value: 'expires-soon', ttl: 3600 }),
       });
 
       expect(res.status).toBe(200);
@@ -322,23 +319,23 @@ describe('Cache API Routes', () => {
 
     it('should overwrite existing value', async () => {
       // Store initial value
-      await app.request('/api/cache/overwrite', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'first' }),
+        body: JSON.stringify({ key: 'overwrite', value: 'first' }),
       });
 
       // Overwrite with new value
-      await app.request('/api/cache/overwrite', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'second' }),
+        body: JSON.stringify({ key: 'overwrite', value: 'second' }),
       });
 
       // Retrieve and verify
@@ -351,13 +348,13 @@ describe('Cache API Routes', () => {
     });
 
     it('should return 400 for missing value', async () => {
-      const res = await app.request('/api/cache/no-value', {
+      const res = await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}), // No value field
+        body: JSON.stringify({ key: 'no-value' }), // No value field
       });
 
       expect(res.status).toBe(400);
@@ -365,14 +362,29 @@ describe('Cache API Routes', () => {
       expect(data.error).toContain('value is required');
     });
 
-    it('should return 400 for invalid TTL (non-positive)', async () => {
-      const res = await app.request('/api/cache/bad-ttl', {
+    it('should return 400 for missing key', async () => {
+      const res = await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'test', ttl: -100 }),
+        body: JSON.stringify({ value: 'test' }), // No key field
+      });
+
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain('key is required');
+    });
+
+    it('should return 400 for invalid TTL (non-positive)', async () => {
+      const res = await app.request('/api/cache/set', {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ key: 'bad-ttl', value: 'test', ttl: -100 }),
       });
 
       expect(res.status).toBe(400);
@@ -381,13 +393,13 @@ describe('Cache API Routes', () => {
     });
 
     it('should return 400 for invalid TTL (zero)', async () => {
-      const res = await app.request('/api/cache/zero-ttl', {
+      const res = await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: 'test', ttl: 0 }),
+        body: JSON.stringify({ key: 'zero-ttl', value: 'test', ttl: 0 }),
       });
 
       expect(res.status).toBe(400);
@@ -396,7 +408,7 @@ describe('Cache API Routes', () => {
     });
 
     it('should return 400 for invalid JSON body', async () => {
-      const res = await app.request('/api/cache/bad-json', {
+      const res = await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
@@ -411,13 +423,13 @@ describe('Cache API Routes', () => {
     });
 
     it('should store null values', async () => {
-      const res = await app.request('/api/cache/null-value', {
+      const res = await app.request('/api/cache/set', {
         method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: null }),
+        body: JSON.stringify({ key: 'null-value', value: null }),
       });
 
       expect(res.status).toBe(200);
@@ -434,34 +446,34 @@ describe('Cache API Routes', () => {
 
     it('should store various data types', async () => {
       // String
-      let res = await app.request('/api/cache/type-string', {
+      let res = await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'hello' }),
+        body: JSON.stringify({ key: 'type-string', value: 'hello' }),
       });
       expect(res.status).toBe(200);
 
       // Number
-      res = await app.request('/api/cache/type-number', {
+      res = await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 42 }),
+        body: JSON.stringify({ key: 'type-number', value: 42 }),
       });
       expect(res.status).toBe(200);
 
       // Boolean
-      res = await app.request('/api/cache/type-bool', {
+      res = await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: true }),
+        body: JSON.stringify({ key: 'type-bool', value: true }),
       });
       expect(res.status).toBe(200);
 
       // Array
-      res = await app.request('/api/cache/type-array', {
+      res = await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: [1, 2, 3] }),
+        body: JSON.stringify({ key: 'type-array', value: [1, 2, 3] }),
       });
       expect(res.status).toBe(200);
 
@@ -481,10 +493,10 @@ describe('Cache API Routes', () => {
   describe('DELETE /api/cache/:key', () => {
     it('should return { deleted: true } for existing key', async () => {
       // Store a value first
-      await app.request('/api/cache/to-delete', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'delete-me' }),
+        body: JSON.stringify({ key: 'to-delete', value: 'delete-me' }),
       });
 
       // Delete it
@@ -518,10 +530,10 @@ describe('Cache API Routes', () => {
 
     it('should delete key with TTL', async () => {
       // Store with TTL
-      await app.request('/api/cache/ttl-delete', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'has-ttl', ttl: 60 }),
+        body: JSON.stringify({ key: 'ttl-delete', value: 'has-ttl', ttl: 60 }),
       });
 
       // Delete it
@@ -544,97 +556,99 @@ describe('Cache API Routes', () => {
   });
 
   // ============================================
-  // HEAD /api/cache/:key
+  // GET /api/cache/:key/exists
   // ============================================
 
-  describe('HEAD /api/cache/:key', () => {
-    it('should return 200 with X-TTL header for existing key without TTL', async () => {
+  describe('GET /api/cache/:key/exists', () => {
+    it('should return 200 with { exists: true, ttl: -1 } for existing key without TTL', async () => {
       // Store a value without TTL
-      await app.request('/api/cache/head-check', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'exists' }),
+        body: JSON.stringify({ key: 'head-check', value: 'exists' }),
       });
 
-      // Check with HEAD
-      const res = await app.request('/api/cache/head-check', {
-        method: 'HEAD',
+      // Check with GET /exists
+      const res = await app.request('/api/cache/head-check/exists', {
         headers: authHeaders()
       });
 
       expect(res.status).toBe(200);
-      expect(res.headers.get('X-TTL')).toBe('-1'); // -1 for permanent (no TTL)
+      const data = await res.json();
+      expect(data.exists).toBe(true);
+      expect(data.ttl).toBe(-1); // -1 for permanent (no TTL)
     });
 
-    it('should return 200 with X-TTL header for existing key with TTL', async () => {
+    it('should return 200 with { exists: true, ttl } for existing key with TTL', async () => {
       // Store a value with TTL
-      await app.request('/api/cache/head-ttl', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'expires', ttl: 60 }),
+        body: JSON.stringify({ key: 'head-ttl', value: 'expires', ttl: 60 }),
       });
 
-      // Check with HEAD
-      const res = await app.request('/api/cache/head-ttl', {
-        method: 'HEAD',
+      // Check with GET /exists
+      const res = await app.request('/api/cache/head-ttl/exists', {
         headers: authHeaders()
       });
 
       expect(res.status).toBe(200);
-      const ttlHeader = res.headers.get('X-TTL');
-      expect(ttlHeader).not.toBeNull();
+      const data = await res.json();
+      expect(data.exists).toBe(true);
       // TTL should be positive (around 60 seconds, but might be slightly less due to time elapsed)
-      const ttl = parseInt(ttlHeader!, 10);
-      expect(ttl).toBeGreaterThan(0);
-      expect(ttl).toBeLessThanOrEqual(60);
+      expect(data.ttl).toBeGreaterThan(0);
+      expect(data.ttl).toBeLessThanOrEqual(60);
     });
 
-    it('should return 404 for non-existent key', async () => {
-      const res = await app.request('/api/cache/nonexistent-head', {
-        method: 'HEAD',
+    it('should return 200 with { exists: false } for non-existent key', async () => {
+      const res = await app.request('/api/cache/nonexistent-head/exists', {
         headers: authHeaders()
       });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.exists).toBe(false);
     });
 
-    it('should return 404 for expired key', async () => {
+    it('should return { exists: false } for expired key', async () => {
       // Store with very short TTL
-      await app.request('/api/cache/expired-head', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'expires-fast', ttl: 0.001 }), // 1ms
+        body: JSON.stringify({ key: 'expired-head', value: 'expires-fast', ttl: 0.001 }), // 1ms
       });
 
       // Wait for expiration
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      // Check with HEAD
-      const res = await app.request('/api/cache/expired-head', {
-        method: 'HEAD',
-        headers: authHeaders()
-      });
-
-      expect(res.status).toBe(404);
-    });
-
-    it('should return empty body', async () => {
-      // Store a value
-      await app.request('/api/cache/head-empty', {
-        method: "POST",
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'test' }),
-      });
-
-      // HEAD request should have empty body
-      const res = await app.request('/api/cache/head-empty', {
-        method: 'HEAD',
+      // Check with GET /exists
+      const res = await app.request('/api/cache/expired-head/exists', {
         headers: authHeaders()
       });
 
       expect(res.status).toBe(200);
-      const text = await res.text();
-      expect(text).toBe('');
+      const data = await res.json();
+      expect(data.exists).toBe(false);
+    });
+
+    it('should return JSON response with exists and ttl fields', async () => {
+      // Store a value
+      await app.request('/api/cache/set', {
+        method: "POST",
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'head-empty', value: 'test' }),
+      });
+
+      // GET /exists should return JSON
+      const res = await app.request('/api/cache/head-empty/exists', {
+        headers: authHeaders()
+      });
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toHaveProperty('exists');
+      expect(data).toHaveProperty('ttl');
+      expect(data.exists).toBe(true);
     });
   });
 
@@ -645,10 +659,10 @@ describe('Cache API Routes', () => {
   describe('Namespace support', () => {
     it('should store and retrieve values with namespace', async () => {
       // Store in namespace
-      const res = await app.request('/api/cache/nskey?namespace=app1', {
+      const res = await app.request('/api/cache/set?namespace=app1', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'namespaced-value' }),
+        body: JSON.stringify({ key: 'nskey', value: 'namespaced-value' }),
       });
       expect(res.status).toBe(200);
 
@@ -663,16 +677,16 @@ describe('Cache API Routes', () => {
 
     it('should isolate namespaces', async () => {
       // Store same key in different namespaces
-      await app.request('/api/cache/shared?namespace=ns1', {
+      await app.request('/api/cache/set?namespace=ns1', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value-ns1' }),
+        body: JSON.stringify({ key: 'shared', value: 'value-ns1' }),
       });
 
-      await app.request('/api/cache/shared?namespace=ns2', {
+      await app.request('/api/cache/set?namespace=ns2', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value-ns2' }),
+        body: JSON.stringify({ key: 'shared', value: 'value-ns2' }),
       });
 
       // Retrieve from each namespace
@@ -689,10 +703,10 @@ describe('Cache API Routes', () => {
 
     it('should return not found when key exists in different namespace', async () => {
       // Store without namespace
-      await app.request('/api/cache/isolated', {
+      await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'no-namespace' }),
+        body: JSON.stringify({ key: 'isolated', value: 'no-namespace' }),
       });
 
       // Try to retrieve with namespace
@@ -705,10 +719,10 @@ describe('Cache API Routes', () => {
 
     it('should delete namespaced keys', async () => {
       // Store with namespace
-      await app.request('/api/cache/del-ns?namespace=todelete', {
+      await app.request('/api/cache/set?namespace=todelete', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'will-delete' }),
+        body: JSON.stringify({ key: 'del-ns', value: 'will-delete' }),
       });
 
       // Delete with same namespace
@@ -726,28 +740,30 @@ describe('Cache API Routes', () => {
       expect((await getRes.json()).found).toBe(false);
     });
 
-    it('should HEAD check with namespace', async () => {
+    it('should check existence with namespace', async () => {
       // Store with namespace and TTL
-      await app.request('/api/cache/head-ns?namespace=testns', {
+      await app.request('/api/cache/set?namespace=testns', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'ns-value', ttl: 120 }),
+        body: JSON.stringify({ key: 'head-ns', value: 'ns-value', ttl: 120 }),
       });
 
-      // HEAD check
-      const res = await app.request('/api/cache/head-ns?namespace=testns', {
-        method: 'HEAD',
+      // Check existence
+      const res = await app.request('/api/cache/head-ns/exists?namespace=testns', {
         headers: authHeaders()
       });
       expect(res.status).toBe(200);
-      expect(res.headers.get('X-TTL')).not.toBeNull();
+      const data = await res.json();
+      expect(data.exists).toBe(true);
+      expect(data.ttl).toBeGreaterThan(0);
 
-      // HEAD check wrong namespace
-      const res2 = await app.request('/api/cache/head-ns?namespace=wrongns', {
-        method: 'HEAD',
+      // Check wrong namespace
+      const res2 = await app.request('/api/cache/head-ns/exists?namespace=wrongns', {
         headers: authHeaders()
       });
-      expect(res2.status).toBe(404);
+      expect(res2.status).toBe(200);
+      const data2 = await res2.json();
+      expect(data2.exists).toBe(false);
     });
   });
 
@@ -761,10 +777,10 @@ describe('Cache API Routes', () => {
       const value = { test: 'data' };
 
       // Set
-      const setRes = await app.request(`/api/cache/${key}`, {
+      const setRes = await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value }),
+        body: JSON.stringify({ key, value }),
       });
       expect(setRes.status).toBe(200);
 
@@ -794,19 +810,20 @@ describe('Cache API Routes', () => {
 
     it('should support lifecycle with TTL', async () => {
       // Set with TTL
-      const setRes = await app.request('/api/cache/ttl-lifecycle', {
+      const setRes = await app.request('/api/cache/set', {
         method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'expires', ttl: 60 }),
+        body: JSON.stringify({ key: 'ttl-lifecycle', value: 'expires', ttl: 60 }),
       });
       expect(setRes.status).toBe(200);
 
-      // HEAD should return 200
-      const headRes1 = await app.request('/api/cache/ttl-lifecycle', {
-        method: 'HEAD',
+      // GET /exists should return { exists: true }
+      const existsRes1 = await app.request('/api/cache/ttl-lifecycle/exists', {
         headers: authHeaders()
       });
-      expect(headRes1.status).toBe(200);
+      expect(existsRes1.status).toBe(200);
+      const existsData1 = await existsRes1.json();
+      expect(existsData1.exists).toBe(true);
 
       // Delete
       await app.request('/api/cache/ttl-lifecycle', {
@@ -814,12 +831,13 @@ describe('Cache API Routes', () => {
         headers: authHeaders()
       });
 
-      // HEAD should return 404
-      const headRes2 = await app.request('/api/cache/ttl-lifecycle', {
-        method: 'HEAD',
+      // GET /exists should return { exists: false }
+      const existsRes2 = await app.request('/api/cache/ttl-lifecycle/exists', {
         headers: authHeaders()
       });
-      expect(headRes2.status).toBe(404);
+      expect(existsRes2.status).toBe(200);
+      const existsData2 = await existsRes2.json();
+      expect(existsData2.exists).toBe(false);
     });
   });
 });
