@@ -877,7 +877,8 @@
           <div class="section">
             <div class="section-header">
               <h3 class="section-title">Cache Keys</h3>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" id="createCacheKeyBtn">+ Create Key</button>
                 <input type="text" class="form-input" id="cacheKeyFilter" placeholder="Filter keys..." style="width: 200px; padding: 0.5rem 0.75rem;">
                 <select class="form-input" id="cacheNamespaceFilter" style="width: 150px; padding: 0.5rem 0.75rem;">
                   <option value="">All namespaces</option>
@@ -930,6 +931,34 @@
                   <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Delete all keys in a namespace</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Create Cache Key Modal -->
+        <div id="createCacheKeyModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;">
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; width: 500px; max-width: 90vw;">
+            <h3 style="color: var(--text-primary); margin-bottom: 1rem;">Create Cache Key</h3>
+            <div class="form-group">
+              <label class="form-label">Key *</label>
+              <input type="text" class="form-input" id="cacheKeyInput" placeholder="e.g., user:1234">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Namespace (optional)</label>
+              <input type="text" class="form-input" id="cacheNamespaceInput" placeholder="e.g., session">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Value *</label>
+              <textarea class="form-input" id="cacheValueInput" rows="3" placeholder='e.g., {"name": "John", "age": 30}' style="font-family: monospace; resize: vertical;"></textarea>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">JSON string or plain text</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">TTL (seconds, optional)</label>
+              <input type="number" class="form-input" id="cacheTtlInput" placeholder="e.g., 3600 for 1 hour">
+            </div>
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+              <button class="btn btn-secondary" id="cancelCreateCacheKey" style="flex: 1;">Cancel</button>
+              <button class="btn btn-primary" id="confirmCreateCacheKey" style="flex: 1;">Create</button>
             </div>
           </div>
         </div>
@@ -2033,6 +2062,75 @@
     // Refresh button
     document.getElementById('cacheRefreshBtn').addEventListener('click', () => {
       loadCache();
+    });
+    
+    // Create Cache Key Modal
+    const createCacheKeyModal = document.getElementById('createCacheKeyModal');
+    const createCacheKeyBtn = document.getElementById('createCacheKeyBtn');
+    const cancelCreateCacheKey = document.getElementById('cancelCreateCacheKey');
+    const confirmCreateCacheKey = document.getElementById('confirmCreateCacheKey');
+    
+    createCacheKeyBtn.addEventListener('click', () => {
+      createCacheKeyModal.style.display = 'flex';
+    });
+    
+    cancelCreateCacheKey.addEventListener('click', () => {
+      createCacheKeyModal.style.display = 'none';
+      document.getElementById('cacheKeyInput').value = '';
+      document.getElementById('cacheNamespaceInput').value = '';
+      document.getElementById('cacheValueInput').value = '';
+      document.getElementById('cacheTtlInput').value = '';
+    });
+    
+    confirmCreateCacheKey.addEventListener('click', async () => {
+      const key = document.getElementById('cacheKeyInput').value.trim();
+      const namespace = document.getElementById('cacheNamespaceInput').value.trim();
+      const valueStr = document.getElementById('cacheValueInput').value.trim();
+      const ttl = document.getElementById('cacheTtlInput').value.trim();
+      
+      if (!key) {
+        alert('Key is required');
+        return;
+      }
+      
+      if (!valueStr) {
+        alert('Value is required');
+        return;
+      }
+      
+      // Try to parse as JSON, fallback to string
+      let value;
+      try {
+        value = JSON.parse(valueStr);
+      } catch {
+        value = valueStr;
+      }
+      
+      const body = { key, value };
+      if (namespace) body.namespace = namespace;
+      if (ttl) body.ttl = parseInt(ttl, 10);
+      
+      const res = await fetch('/api/cache/set', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        createCacheKeyModal.style.display = 'none';
+        document.getElementById('cacheKeyInput').value = '';
+        document.getElementById('cacheNamespaceInput').value = '';
+        document.getElementById('cacheValueInput').value = '';
+        document.getElementById('cacheTtlInput').value = '';
+        loadCache();
+      } else {
+        alert(data.error || 'Failed to create cache key');
+      }
     });
     
     // Cleanup expired button
