@@ -62,8 +62,41 @@ async function cacheAuthMiddleware(c: Context, next: Next) {
 /** Hono router for cache routes */
 export const cacheRoutes = new Hono();
 
-// Apply authentication middleware
-cacheRoutes.use('/*', cacheAuthMiddleware);
+// Apply authentication middleware to all routes EXCEPT health endpoint
+// Health endpoint must be publicly accessible without auth
+cacheRoutes.use('/*', async (c, next) => {
+  // Skip auth for /health endpoint
+  if (c.req.path === '/api/cache/health') {
+    return next();
+  }
+  return cacheAuthMiddleware(c, next);
+});
+
+// ============================================
+// GET /api/cache/health - Health check (public, no auth)
+// ============================================
+
+/**
+ * Public health check endpoint.
+ * Verifies cache is working and returns latency measurement.
+ * No authentication required.
+ * Returns { ok: true, latencyMs: number }
+ */
+cacheRoutes.get('/health', async (c) => {
+  try {
+    const cache = getCacheService();
+    
+    const start = Date.now();
+    // Simple ping operation - do a basic get operation
+    await cache.get('__health_check_ping__', '__health__');
+    const latencyMs = Date.now() - start;
+
+    return c.json({ ok: true, latencyMs });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Health check failed';
+    return c.json({ ok: false, error: message }, 500);
+  }
+});
 
 // ============================================
 // POST /api/cache/set - Set value
@@ -263,6 +296,34 @@ cacheRoutes.post('/:key/decrement', async (c) => {
       return c.json({ ok: false, error: err.message }, 400);
     }
     const message = err instanceof Error ? err.message : 'Failed to decrement value';
+    return c.json({ ok: false, error: message }, 500);
+  }
+});
+
+// ============================================
+// GET /api/cache/:key/ttl - Get TTL for key
+// ============================================
+
+/**
+ * Get the remaining TTL for a key.
+ * Returns { ttl: number }
+ *
+ * TTL values:
+ * - > 0: Remaining seconds until expiration
+ * - -1: Key exists but has no TTL (permanent)
+ * - -2: Key doesn't exist or has expired
+ */
+cacheRoutes.get('/:key/ttl', async (c) => {
+  try {
+    const key = c.req.param('key');
+    const namespace = c.req.query('namespace');
+
+    const cache = getCacheService();
+    const ttl = await cache.getTtl(key, namespace);
+
+    return c.json({ ttl });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to get TTL';
     return c.json({ ok: false, error: message }, 500);
   }
 });
