@@ -236,6 +236,202 @@ export class CacheService {
 
     return ttlRemaining;
   }
+
+  // ============================================
+  // Admin Methods
+  // ============================================
+
+  /**
+   * Gets cache statistics.
+   * Returns total keys, keys with TTL, expired keys, and unique namespaces.
+   *
+   * @returns Promise resolving to cache statistics
+   */
+  async getStats(): Promise<{
+    totalKeys: number;
+    withTtl: number;
+    expired: number;
+    namespaces: string[];
+  }> {
+    let totalKeys = 0;
+    let withTtl = 0;
+    let expired = 0;
+    const namespaces = new Set<string>();
+
+    const now = Date.now();
+
+    // Iterate through cache database
+    for await (const { key } of this.db.getRange()) {
+      totalKeys++;
+      const keyStr = String(key);
+      
+      // Extract namespace from key (format: namespace:key or just key)
+      const colonIndex = keyStr.indexOf(':');
+      if (colonIndex > 0) {
+        namespaces.add(keyStr.slice(0, colonIndex));
+      }
+
+      // Check TTL
+      const ttlEntry = await this.ttl.getTtlEntry(keyStr);
+      if (ttlEntry) {
+        withTtl++;
+        if (ttlEntry.expiresAt <= now) {
+          expired++;
+        }
+      }
+    }
+
+    return {
+      totalKeys,
+      withTtl,
+      expired,
+      namespaces: Array.from(namespaces).sort(),
+    };
+  }
+
+  /**
+   * Lists cache keys with optional filtering.
+   *
+   * @param options - Filter options
+   * @param options.namespace - Filter by namespace
+   * @param options.limit - Maximum keys to return (default: 100)
+   * @returns Promise resolving to keys array and total count
+   */
+  async listKeys(options?: {
+    namespace?: string;
+    limit?: number;
+  }): Promise<{
+    keys: Array<{ key: string; ttl: number | null; namespace: string | null }>;
+    total: number;
+  }> {
+    const { namespace, limit = 100 } = options || {};
+    const keys: Array<{ key: string; ttl: number | null; namespace: string | null }> = [];
+    let total = 0;
+
+    const prefix = namespace ? `${namespace}:` : undefined;
+
+    // Iterate through cache database
+    for await (const { key } of this.db.getRange()) {
+      const keyStr = String(key);
+      
+      // Filter by namespace if provided
+      if (prefix && !keyStr.startsWith(prefix)) {
+        continue;
+      }
+
+      total++;
+
+      if (keys.length < limit) {
+        // Extract namespace from key
+        const colonIndex = keyStr.indexOf(':');
+        const keyNamespace = colonIndex > 0 ? keyStr.slice(0, colonIndex) : null;
+        const keyValue = colonIndex > 0 ? keyStr.slice(colonIndex + 1) : keyStr;
+
+        // Get TTL info - use raw key for TTL lookup
+        const ttlEntry = await this.ttl.getTtlEntry(keyStr);
+        let ttl: number | null = null;
+        
+        if (ttlEntry) {
+          const remainingMs = ttlEntry.expiresAt - Date.now();
+          if (remainingMs > 0) {
+            ttl = Math.ceil(remainingMs / 1000);
+          }
+        }
+
+        keys.push({
+          key: keyValue,
+          ttl,
+          namespace: keyNamespace,
+        });
+      }
+    }
+
+    return { keys, total };
+  }
+
+  /**
+   * Deletes a key by its full storage key.
+   *
+   * @param key - The full storage key (may include namespace prefix)
+   * @returns Promise resolving to true if key existed
+   */
+  async deleteByKey(key: string): Promise<boolean> {
+    const existed = await this.db.get(key) !== undefined;
+    
+    if (existed) {
+      await this.db.remove(key);
+    }
+    
+    // Always remove TTL entry
+    await this.ttl.removeTtl(key);
+    
+    return existed;
+  }
+
+  /**
+   * Deletes all keys in a namespace.
+   *
+   * @param namespace - The namespace to delete
+   * @returns Promise resolving to number of keys deleted
+   */
+  async deleteByNamespace(namespace: string): Promise<number> {
+    const prefix = `${namespace}:`;
+    let deleted = 0;
+    const keysToDelete: string[] = [];
+
+    // Collect keys to delete
+    for await (const { key } of this.db.getRange({ start: prefix })) {
+      const keyStr = String(key);
+      if (!keyStr.startsWith(prefix)) {
+        break;
+      }
+      keysToDelete.push(keyStr);
+    }
+
+    // Delete collected keys
+    for (const key of keysToDelete) {
+      await this.db.remove(key);
+      await this.ttl.removeTtl(key);
+      deleted++;
+    }
+
+    return deleted;
+  }
+
+  /**
+   * Cleans up expired cache entries.
+   *
+   * @returns Promise resolving to number of entries removed
+   */
+  async cleanup(): Promise<number> {
+    let cleaned = 0;
+    const keysToDelete: string[] = [];
+    const now = Date.now();
+
+    // Find expired keys through TTL database
+    for await (const { key, value } of this.ttl['ttlDb'].getRange()) {
+      const keyStr = String(key);
+      const entry = value as { expiresAt: number; namespace?: string };
+      
+      if (entry.expiresAt <= now) {
+        keysToDelete.push(keyStr);
+      }
+    }
+
+    // Delete expired entries
+    for (const key of keysToDelete) {
+      // Delete from cache
+      const cacheKey = key;
+      await this.db.remove(cacheKey);
+      
+      // Delete from TTL
+      await this.ttl.removeTtl(key);
+      
+      cleaned++;
+    }
+
+    return cleaned;
+  }
 }
 
 // Singleton instance

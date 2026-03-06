@@ -31,6 +31,7 @@ import {
   databaseExists,
 } from '../db/index.js';
 import { getStoragePath } from '../api/storage.js';
+import { getCacheService } from '../services/cache.js';
 import { existsSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -834,6 +835,149 @@ adminRoutes.delete('/dbs/:name', async (c) => {
       ok: false,
       error: message,
     }, status);
+  }
+});
+
+// ============================================
+// Cache Management API
+// ============================================
+
+/**
+ * Get cache statistics.
+ * Returns total keys, keys with TTL, expired keys, and unique namespaces.
+ * 
+ * @route GET /api/admin/cache/stats
+ * @returns {Object} 200 - { ok: true, totalKeys, withTtl, expired, namespaces }
+ */
+adminRoutes.get('/cache/stats', async (c) => {
+  try {
+    const cache = getCacheService();
+    const stats = await cache.getStats();
+    
+    return c.json({
+      ok: true,
+      ...stats,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to get cache stats';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * List cache keys with optional namespace filter.
+ * 
+ * @route GET /api/admin/cache/keys
+ * @query {string} namespace - Filter by namespace
+ * @query {number} limit - Maximum keys to return (default: 100)
+ * @returns {Object} 200 - { ok: true, keys: Array<{ key, ttl, namespace }>, total }
+ */
+adminRoutes.get('/cache/keys', async (c) => {
+  try {
+    const cache = getCacheService();
+    const namespace = c.req.query('namespace');
+    const limit = parseInt(c.req.query('limit') || '100');
+    
+    const result = await cache.listKeys({ namespace, limit: Math.min(limit, 1000) });
+    
+    return c.json({
+      ok: true,
+      ...result,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list cache keys';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Delete a single cache key.
+ * 
+ * @route DELETE /api/admin/cache/:key
+ * @param {string} key - The cache key to delete
+ * @returns {Object} 200 - { ok: true, deleted: boolean }
+ */
+adminRoutes.delete('/cache/:key', async (c) => {
+  try {
+    const cache = getCacheService();
+    const key = decodeURIComponent(c.req.param('key'));
+    
+    const deleted = await cache.deleteByKey(key);
+    
+    return c.json({
+      ok: true,
+      deleted,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to delete cache key';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Flush all keys in a namespace or delete by query.
+ * 
+ * @route DELETE /api/admin/cache
+ * @query {string} namespace - Namespace to flush (required for flush operation)
+ * @returns {Object} 200 - { ok: true, deleted: number }
+ */
+adminRoutes.delete('/cache', async (c) => {
+  try {
+    const cache = getCacheService();
+    const namespace = c.req.query('namespace');
+    
+    if (!namespace) {
+      return c.json({
+        ok: false,
+        error: 'Namespace is required for flush operation',
+      }, 400);
+    }
+    
+    const deleted = await cache.deleteByNamespace(namespace);
+    
+    return c.json({
+      ok: true,
+      deleted,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to flush cache namespace';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
+  }
+});
+
+/**
+ * Trigger cache cleanup (remove expired entries).
+ * 
+ * @route POST /api/admin/cache/cleanup
+ * @returns {Object} 200 - { ok: true, cleaned: number }
+ */
+adminRoutes.post('/cache/cleanup', async (c) => {
+  try {
+    const cache = getCacheService();
+    const cleaned = await cache.cleanup();
+    
+    return c.json({
+      ok: true,
+      cleaned,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to cleanup cache';
+    return c.json({
+      ok: false,
+      error: message,
+    }, 500);
   }
 });
 
