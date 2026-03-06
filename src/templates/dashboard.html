@@ -524,6 +524,15 @@
           </svg>
           Storage
         </a>
+        <a href="#cache" class="nav-item" data-tab="cache">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+          Cache
+        </a>
         <a href="#settings" class="nav-item" data-tab="settings">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"></circle>
@@ -830,6 +839,101 @@
           </div>
         </div>
         
+        <!-- Cache Tab -->
+        <div class="tab-panel" id="tab-cache">
+          <!-- Cache Stats -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total Keys</div>
+              <div class="stat-value" id="cacheTotalKeys">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Keys with TTL</div>
+              <div class="stat-value" id="cacheWithTtl">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Expired (Pending)</div>
+              <div class="stat-value" id="cacheExpired" style="color: var(--danger);">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Namespaces</div>
+              <div class="stat-value" id="cacheNamespaces">-</div>
+            </div>
+          </div>
+          
+          <!-- Namespace Chips -->
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Namespaces</h3>
+            </div>
+            <div class="section-body">
+              <div id="namespaceChips" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                <span style="color: var(--text-muted);">Loading...</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Keys Browser -->
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Cache Keys</h3>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="text" class="form-input" id="cacheKeyFilter" placeholder="Filter keys..." style="width: 200px; padding: 0.5rem 0.75rem;">
+                <select class="form-input" id="cacheNamespaceFilter" style="width: 150px; padding: 0.5rem 0.75rem;">
+                  <option value="">All namespaces</option>
+                </select>
+                <button class="btn btn-secondary" id="cacheRefreshBtn">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="section-body">
+              <div class="loading-spinner" id="cacheLoading">
+                <div class="spinner"></div>
+              </div>
+              <table class="data-table" id="cacheTable" style="display: none;">
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Namespace</th>
+                    <th>TTL</th>
+                    <th style="width: 100px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="cacheTableBody">
+                </tbody>
+              </table>
+              <div class="empty-state" id="cacheEmpty" style="display: none;">
+                <div class="empty-state-icon">🗄️</div>
+                <p>No cache keys found</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Actions -->
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Actions</h3>
+            </div>
+            <div class="section-body">
+              <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <div>
+                  <button class="btn btn-secondary" id="cacheCleanupBtn">🗑️ Cleanup Expired</button>
+                  <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Remove expired entries from cache</p>
+                </div>
+                <div>
+                  <label class="form-label" style="margin-bottom: 0.25rem;">Namespace to flush:</label>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <select class="form-input" id="flushNamespaceSelect" style="width: 200px;">
+                      <option value="">Select namespace...</option>
+                    </select>
+                    <button class="btn btn-secondary" style="color: var(--danger);" id="cacheFlushBtn">⚠️ Flush Namespace</button>
+                  </div>
+                  <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Delete all keys in a namespace</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <!-- Settings Tab -->
         <div class="tab-panel" id="tab-settings">
           <!-- API Keys Section -->
@@ -980,6 +1084,7 @@
       overview: { title: 'Overview', subtitle: 'Server statistics and health' },
       databases: { title: 'Databases', subtitle: 'Browse and manage databases' },
       storage: { title: 'Storage', subtitle: 'File storage browser' },
+      cache: { title: 'Cache', subtitle: 'Key-value cache management' },
       settings: { title: 'Settings', subtitle: 'Configure your preferences' },
     };
     
@@ -1007,6 +1112,7 @@
       if (tab === 'overview') loadOverview();
       if (tab === 'databases') loadDatabases();
       if (tab === 'storage') loadStorage();
+      if (tab === 'cache') loadCache();
       if (tab === 'settings') {
         loadApiKeys();
         loadEnv();
@@ -1790,6 +1896,194 @@
       const date = new Date(isoString);
       return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
+    
+    // ============================================
+    // Cache Management
+    // ============================================
+    
+    let cacheKeysData = [];
+    
+    // Load cache stats and keys
+    async function loadCache() {
+      const loading = document.getElementById('cacheLoading');
+      const table = document.getElementById('cacheTable');
+      const empty = document.getElementById('cacheEmpty');
+      
+      loading.style.display = 'flex';
+      table.style.display = 'none';
+      empty.style.display = 'none';
+      
+      // Load stats
+      const stats = await apiGet('/api/admin/cache/stats');
+      if (stats && stats.ok !== false) {
+        document.getElementById('cacheTotalKeys').textContent = stats.totalKeys ?? 0;
+        document.getElementById('cacheWithTtl').textContent = stats.withTtl ?? 0;
+        document.getElementById('cacheExpired').textContent = stats.expired ?? 0;
+        document.getElementById('cacheNamespaces').textContent = stats.namespaces?.length ?? 0;
+        
+        // Namespace chips
+        const chipsContainer = document.getElementById('namespaceChips');
+        const currentNamespace = document.getElementById('cacheNamespaceFilter').value;
+        
+        if (stats.namespaces && stats.namespaces.length > 0) {
+          chipsContainer.innerHTML = stats.namespaces.map(ns => `
+            <span class="namespace-chip" onclick="filterByNamespace('${escapeHtml(ns)}')" style="cursor: pointer; padding: 0.25rem 0.75rem; background: ${currentNamespace === ns ? 'var(--accent)' : 'var(--bg-tertiary)'}; border-radius: 16px; font-size: 0.75rem; color: ${currentNamespace === ns ? 'var(--text-primary)' : 'var(--text-secondary)'}; border: 1px solid var(--border-color); transition: all 0.2s;" onmouseover="this.style.background='${currentNamespace === ns ? 'var(--accent-hover)' : 'var(--bg-primary)'}'" onmouseout="this.style.background='${currentNamespace === ns ? 'var(--accent)' : 'var(--bg-tertiary)'}'">
+              ${escapeHtml(ns)}
+            </span>
+          `).join('');
+          
+          // Update flush namespace select
+          const flushSelect = document.getElementById('flushNamespaceSelect');
+          flushSelect.innerHTML = '<option value="">Select namespace...</option>' + 
+            stats.namespaces.map(ns => `<option value="${escapeHtml(ns)}">${escapeHtml(ns)}</option>`).join('');
+        } else {
+          chipsContainer.innerHTML = '<span style="color: var(--text-muted);">No namespaces found</span>';
+        }
+      }
+      
+      // Load keys
+      const namespace = document.getElementById('cacheNamespaceFilter').value;
+      const keysData = await apiGet(`/api/admin/cache/keys?limit=500${namespace ? '&namespace=' + encodeURIComponent(namespace) : ''}`);
+      
+      loading.style.display = 'none';
+      
+      if (keysData && keysData.keys && keysData.keys.length > 0) {
+        cacheKeysData = keysData.keys;
+        renderCacheTable();
+        table.style.display = 'table';
+      } else {
+        empty.style.display = 'block';
+      }
+    }
+    
+    // Render cache table with current filter
+    function renderCacheTable() {
+      const table = document.getElementById('cacheTable');
+      const tbody = document.getElementById('cacheTableBody');
+      const empty = document.getElementById('cacheEmpty');
+      const filter = document.getElementById('cacheKeyFilter').value.toLowerCase();
+      
+      let filteredKeys = cacheKeysData;
+      
+      // Apply text filter
+      if (filter) {
+        filteredKeys = filteredKeys.filter(k => k.key.toLowerCase().includes(filter));
+      }
+      
+      if (filteredKeys.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+      
+      table.style.display = 'table';
+      empty.style.display = 'none';
+      
+      tbody.innerHTML = filteredKeys.map(k => {
+        const ttlDisplay = k.ttl === -1 ? 'permanent' : (k.ttl === 0 ? 'expired' : `${k.ttl}s`);
+        const ttlColor = k.ttl === -1 ? 'var(--text-muted)' : (k.ttl === 0 ? 'var(--danger)' : 'var(--success)');
+        return `
+          <tr>
+            <td><code style="color: var(--accent); font-size: 0.8rem;">${escapeHtml(k.key)}</code></td>
+            <td><span style="padding: 0.125rem 0.5rem; background: var(--bg-tertiary); border-radius: 12px; font-size: 0.75rem;">${escapeHtml(k.namespace || 'default')}</span></td>
+            <td><span style="color: ${ttlColor};">${escapeHtml(ttlDisplay)}</span></td>
+            <td>
+              <button class="btn btn-secondary" style="color: var(--danger); padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="deleteCacheKey('${escapeHtml(k.key)}')">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // Filter by namespace (from chip click)
+    window.filterByNamespace = function(ns) {
+      document.getElementById('cacheNamespaceFilter').value = ns;
+      loadCache();
+    };
+    
+    // Delete cache key
+    window.deleteCacheKey = async function(key) {
+      if (!confirm(`Delete cache key "${key}"?`)) return;
+      
+      const res = await fetch(`/api/admin/cache/${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (res.ok) {
+        loadCache();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete key');
+      }
+    };
+    
+    // Filter input listener
+    document.getElementById('cacheKeyFilter').addEventListener('input', () => {
+      renderCacheTable();
+    });
+    
+    // Namespace filter change
+    document.getElementById('cacheNamespaceFilter').addEventListener('change', () => {
+      loadCache();
+    });
+    
+    // Refresh button
+    document.getElementById('cacheRefreshBtn').addEventListener('click', () => {
+      loadCache();
+    });
+    
+    // Cleanup expired button
+    document.getElementById('cacheCleanupBtn').addEventListener('click', async () => {
+      if (!confirm('Remove all expired cache entries?')) return;
+      
+      const res = await fetch('/api/admin/cache/cleanup', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        alert(`Cleanup complete. ${data.cleaned} entries removed.`);
+        loadCache();
+      } else {
+        alert(data.error || 'Failed to cleanup cache');
+      }
+    });
+    
+    // Flush namespace button
+    document.getElementById('cacheFlushBtn').addEventListener('click', async () => {
+      const namespace = document.getElementById('flushNamespaceSelect').value;
+      
+      if (!namespace) {
+        alert('Please select a namespace to flush');
+        return;
+      }
+      
+      if (!confirm(`Delete ALL keys in namespace "${namespace}"? This cannot be undone!`)) return;
+      if (!confirm(`Are you REALLY sure? All cache data in "${namespace}" will be permanently deleted.`)) return;
+      
+      const res = await fetch(`/api/admin/cache?namespace=${encodeURIComponent(namespace)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        alert(`Namespace flushed. ${data.deleted} keys deleted.`);
+        loadCache();
+      } else {
+        alert(data.error || 'Failed to flush namespace');
+      }
+    });
     
     // Initial load
     loadOverview();
