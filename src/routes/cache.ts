@@ -4,18 +4,11 @@
  * Provides REST endpoints for cache operations with TTL support.
  * All routes require Bearer token authentication.
  *
- * ## Phase 1 Endpoints (Implemented)
- * - `GET /api/cache/:key` - Get cache value
- * - `PUT /api/cache/:key` - Set cache value with optional TTL
- * - `DELETE /api/cache/:key` - Delete cache entry
- * - `HEAD /api/cache/:key` - Check if key exists (returns X-TTL header)
- *
- * ## Phase 2 Endpoints (Future Tasks)
- * - `POST /api/cache/keys` - List keys by pattern
- * - `POST /api/cache/incr/:key` - Increment counter
- * - `POST /api/cache/batch` - Batch operations
- * - `GET /api/cache/:key/ttl` - Get remaining TTL
- * - `GET /api/cache/health` - Health check with latency
+ * ## Endpoints
+ * - `HEAD /api/cache/:key` - Check existence + X-TTL header
+ * - `GET /api/cache/:key` - Get value
+ * - `POST /api/cache/:key` - Set value with optional TTL
+ * - `DELETE /api/cache/:key` - Delete entry
  *
  * @module routes/cache
  */
@@ -28,8 +21,6 @@ import { loadConfig } from '../server/index.js';
 
 /**
  * Cache authentication middleware.
- * Validates API keys from Authorization header against environment
- * config and database-stored keys.
  */
 async function cacheAuthMiddleware(c: Context, next: Next) {
   const authHeader = c.req.header('Authorization');
@@ -42,7 +33,6 @@ async function cacheAuthMiddleware(c: Context, next: Next) {
     }, 401);
   }
 
-  // Check Bearer format
   const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
     return c.json({
@@ -53,12 +43,8 @@ async function cacheAuthMiddleware(c: Context, next: Next) {
   }
 
   const apiKey = parts[1];
-
-  // Validate against environment keys
   const config = loadConfig();
   const isValidEnvKey = config.API_KEYS.includes(apiKey);
-
-  // Validate against database keys
   const isValidDbKey = await validateApiKey(apiKey);
 
   if (!isValidEnvKey && !isValidDbKey) {
@@ -69,19 +55,14 @@ async function cacheAuthMiddleware(c: Context, next: Next) {
     }, 401);
   }
 
-  // Set auth context
-  c.set('auth', {
-    keyId: 'default',
-    keyName: 'API Key',
-  });
-
+  c.set('auth', { keyId: 'default', keyName: 'API Key' });
   await next();
 }
 
 /** Hono router for cache routes */
 export const cacheRoutes = new Hono();
 
-// Apply authentication middleware to all cache routes
+// Apply authentication middleware
 cacheRoutes.use('/*', cacheAuthMiddleware);
 
 // ============================================
@@ -89,11 +70,10 @@ cacheRoutes.use('/*', cacheAuthMiddleware);
 // ============================================
 
 /**
- * Check if a key exists in the cache.
- * Returns 200 if found, 404 if not found.
- * Includes X-TTL header with remaining TTL in seconds (-1 if no TTL).
+ * Handle HEAD requests for existence check.
+ * This must be registered BEFORE GET to ensure HEAD is handled correctly.
  */
-cacheRoutes.on('HEAD', '/:key', async (c) => {
+const handleHead = async (c: any) => {
   try {
     const key = c.req.param('key');
     const namespace = c.req.query('namespace');
@@ -102,20 +82,20 @@ cacheRoutes.on('HEAD', '/:key', async (c) => {
     const exists = await cache.has(key, namespace);
 
     if (!exists) {
-      return new Response(null, { status: 404 });
+      return c.json({ error: 'Not found' }, 404);
     }
 
     const ttl = await cache.getTtl(key, namespace);
-
-    return new Response(null, {
-      status: 200,
-      headers: { 'X-TTL': ttl.toString() }
-    });
+    c.header('X-TTL', ttl.toString());
+    return c.body(null, 200);
   } catch (err) {
     console.error('HEAD /api/cache/:key error:', err);
-    return new Response(null, { status: 500 });
+    return c.json({ error: 'Internal error' }, 500);
   }
-});
+};
+
+// Register HEAD handler - must come before GET
+cacheRoutes.on('HEAD', '/:key', handleHead);
 
 // ============================================
 // GET /api/cache/:key - Get value
@@ -123,22 +103,7 @@ cacheRoutes.on('HEAD', '/:key', async (c) => {
 
 /**
  * Get a value from the cache.
- * Returns the value and found status.
- *
- * @route GET /api/cache/:key
- * @returns {Object} 200 - { value, found: true }
- * @returns {Object} 404 - { value: null, found: false }
- *
- * @example
- * // Request
- * GET /api/cache/user:123
- * Authorization: Bearer <api-key>
- *
- * // Response (found)
- * { "value": { "name": "Alice" }, "found": true }
- *
- * // Response (not found)
- * { "value": null, "found": false }
+ * Returns { value, found }.
  */
 cacheRoutes.get('/:key', async (c) => {
   try {
@@ -154,103 +119,57 @@ cacheRoutes.get('/:key', async (c) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to get cache value';
-    return c.json({
-      ok: false,
-      error: message,
-    }, 500);
+    return c.json({ ok: false, error: message }, 500);
   }
 });
 
+// ============================================
+// POST /api/cache/:key - Set value
+// ============================================
+
 /**
- * Store a value in the cache with optional TTL.
- *
- * @route PUT /api/cache/:key
- * @body { value: any, ttl?: number, namespace?: string }
- * @returns {Object} 200 - { ok: true, key, ttl? }
- *
- * @example
- * // Request (permanent)
- * PUT /api/cache/config
- * Authorization: Bearer <api-key>
- * { "value": { "theme": "dark" } }
- *
- * // Request (with TTL)
- * PUT /api/cache/session:abc
- * Authorization: Bearer <api-key>
- * { "value": { "userId": 123 }, "ttl": 3600 }
- *
- * // Response
- * { "ok": true, "key": "session:abc", "ttl": 3600 }
+ * Store a value with optional TTL.
  */
-cacheRoutes.put('/:key', async (c) => {
+cacheRoutes.post('/:key', async (c) => {
   try {
     const key = c.req.param('key');
-
-    // Get namespace from query param (preferred) or body
     const queryNamespace = c.req.query('namespace');
 
     let body: { value: unknown; ttl?: number; namespace?: string };
     try {
       body = await c.req.json();
     } catch {
-      return c.json({
-        ok: false,
-        error: 'Invalid JSON body',
-      }, 400);
+      return c.json({ ok: false, error: 'Invalid JSON body' }, 400);
     }
 
     if (body.value === undefined) {
-      return c.json({
-        ok: false,
-        error: 'value is required',
-      }, 400);
+      return c.json({ ok: false, error: 'value is required' }, 400);
     }
 
     if (body.ttl !== undefined && (typeof body.ttl !== 'number' || body.ttl <= 0)) {
-      return c.json({
-        ok: false,
-        error: 'ttl must be a positive number',
-      }, 400);
+      return c.json({ ok: false, error: 'ttl must be a positive number' }, 400);
     }
 
-    // Prefer query param namespace over body namespace
     const namespace = queryNamespace || body.namespace;
-
     const cache = getCacheService();
     await cache.set(key, body.value, body.ttl, namespace);
 
-    const response: { ok: boolean; key: string; ttl?: number } = {
-      ok: true,
-      key,
-    };
-
-    if (body.ttl) {
-      response.ttl = body.ttl;
-    }
+    const response: { ok: boolean; key: string; ttl?: number } = { ok: true, key };
+    if (body.ttl) response.ttl = body.ttl;
 
     return c.json(response);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to set cache value';
-    return c.json({
-      ok: false,
-      error: message,
-    }, 500);
+    return c.json({ ok: false, error: message }, 500);
   }
 });
 
+// ============================================
+// DELETE /api/cache/:key - Delete entry
+// ============================================
+
 /**
  * Delete a value from the cache.
- *
- * @route DELETE /api/cache/:key
- * @returns {Object} 200 - { deleted: boolean }
- *
- * @example
- * // Request
- * DELETE /api/cache/user:123?namespace=sessions
- * Authorization: Bearer <api-key>
- *
- * // Response
- * { "deleted": true }
  */
 cacheRoutes.delete('/:key', async (c) => {
   try {
@@ -260,15 +179,10 @@ cacheRoutes.delete('/:key', async (c) => {
     const cache = getCacheService();
     const deleted = await cache.delete(key, namespace);
 
-    return c.json({
-      deleted,
-    });
+    return c.json({ deleted });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to delete cache value';
-    return c.json({
-      ok: false,
-      error: message,
-    }, 500);
+    return c.json({ ok: false, error: message }, 500);
   }
 });
 

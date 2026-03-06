@@ -118,7 +118,7 @@ describe('Cache API Routes', () => {
     describe('PUT /api/cache/:key', () => {
       it('should return 401 without Authorization header', async () => {
         const res = await app.request('/api/cache/test-key', {
-          method: 'PUT',
+          method: "POST",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'test' })
         });
@@ -130,7 +130,7 @@ describe('Cache API Routes', () => {
 
       it('should return 401 with invalid API key', async () => {
         const res = await app.request('/api/cache/test-key', {
-          method: 'PUT',
+          method: "POST",
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer invalid-key'
@@ -200,7 +200,7 @@ describe('Cache API Routes', () => {
     it('should return { value, found: true } for existing key', async () => {
       // First store a value
       await app.request('/api/cache/mykey', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -236,7 +236,7 @@ describe('Cache API Routes', () => {
 
       // Store complex object
       await app.request('/api/cache/complex', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -258,7 +258,7 @@ describe('Cache API Routes', () => {
     it('should handle URL-encoded keys', async () => {
       // Store with key containing special characters
       await app.request('/api/cache/user:123', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -285,7 +285,7 @@ describe('Cache API Routes', () => {
   describe('PUT /api/cache/:key', () => {
     it('should store value and return { ok, key }', async () => {
       const res = await app.request('/api/cache/newkey', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -303,7 +303,7 @@ describe('Cache API Routes', () => {
 
     it('should store value with TTL and return ttl in response', async () => {
       const res = await app.request('/api/cache/ttlkey', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -323,7 +323,7 @@ describe('Cache API Routes', () => {
     it('should overwrite existing value', async () => {
       // Store initial value
       await app.request('/api/cache/overwrite', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -333,7 +333,7 @@ describe('Cache API Routes', () => {
 
       // Overwrite with new value
       await app.request('/api/cache/overwrite', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -352,7 +352,7 @@ describe('Cache API Routes', () => {
 
     it('should return 400 for missing value', async () => {
       const res = await app.request('/api/cache/no-value', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -367,7 +367,7 @@ describe('Cache API Routes', () => {
 
     it('should return 400 for invalid TTL (non-positive)', async () => {
       const res = await app.request('/api/cache/bad-ttl', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -382,7 +382,7 @@ describe('Cache API Routes', () => {
 
     it('should return 400 for invalid TTL (zero)', async () => {
       const res = await app.request('/api/cache/zero-ttl', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -397,7 +397,7 @@ describe('Cache API Routes', () => {
 
     it('should return 400 for invalid JSON body', async () => {
       const res = await app.request('/api/cache/bad-json', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -412,7 +412,7 @@ describe('Cache API Routes', () => {
 
     it('should store null values', async () => {
       const res = await app.request('/api/cache/null-value', {
-        method: 'PUT',
+        method: "POST",
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
@@ -435,7 +435,7 @@ describe('Cache API Routes', () => {
     it('should store various data types', async () => {
       // String
       let res = await app.request('/api/cache/type-string', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'hello' }),
       });
@@ -443,7 +443,7 @@ describe('Cache API Routes', () => {
 
       // Number
       res = await app.request('/api/cache/type-number', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 42 }),
       });
@@ -451,7 +451,7 @@ describe('Cache API Routes', () => {
 
       // Boolean
       res = await app.request('/api/cache/type-bool', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: true }),
       });
@@ -459,7 +459,7 @@ describe('Cache API Routes', () => {
 
       // Array
       res = await app.request('/api/cache/type-array', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: [1, 2, 3] }),
       });
@@ -482,7 +482,7 @@ describe('Cache API Routes', () => {
     it('should return { deleted: true } for existing key', async () => {
       // Store a value first
       await app.request('/api/cache/to-delete', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'delete-me' }),
       });
@@ -519,7 +519,7 @@ describe('Cache API Routes', () => {
     it('should delete key with TTL', async () => {
       // Store with TTL
       await app.request('/api/cache/ttl-delete', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'has-ttl', ttl: 60 }),
       });
@@ -551,7 +551,7 @@ describe('Cache API Routes', () => {
     it('should return 200 with X-TTL header for existing key without TTL', async () => {
       // Store a value without TTL
       await app.request('/api/cache/head-check', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'exists' }),
       });
@@ -569,7 +569,7 @@ describe('Cache API Routes', () => {
     it('should return 200 with X-TTL header for existing key with TTL', async () => {
       // Store a value with TTL
       await app.request('/api/cache/head-ttl', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'expires', ttl: 60 }),
       });
@@ -601,7 +601,7 @@ describe('Cache API Routes', () => {
     it('should return 404 for expired key', async () => {
       // Store with very short TTL
       await app.request('/api/cache/expired-head', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'expires-fast', ttl: 0.001 }), // 1ms
       });
@@ -621,7 +621,7 @@ describe('Cache API Routes', () => {
     it('should return empty body', async () => {
       // Store a value
       await app.request('/api/cache/head-empty', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'test' }),
       });
@@ -646,7 +646,7 @@ describe('Cache API Routes', () => {
     it('should store and retrieve values with namespace', async () => {
       // Store in namespace
       const res = await app.request('/api/cache/nskey?namespace=app1', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'namespaced-value' }),
       });
@@ -664,13 +664,13 @@ describe('Cache API Routes', () => {
     it('should isolate namespaces', async () => {
       // Store same key in different namespaces
       await app.request('/api/cache/shared?namespace=ns1', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'value-ns1' }),
       });
 
       await app.request('/api/cache/shared?namespace=ns2', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'value-ns2' }),
       });
@@ -690,7 +690,7 @@ describe('Cache API Routes', () => {
     it('should return not found when key exists in different namespace', async () => {
       // Store without namespace
       await app.request('/api/cache/isolated', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'no-namespace' }),
       });
@@ -706,7 +706,7 @@ describe('Cache API Routes', () => {
     it('should delete namespaced keys', async () => {
       // Store with namespace
       await app.request('/api/cache/del-ns?namespace=todelete', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'will-delete' }),
       });
@@ -729,7 +729,7 @@ describe('Cache API Routes', () => {
     it('should HEAD check with namespace', async () => {
       // Store with namespace and TTL
       await app.request('/api/cache/head-ns?namespace=testns', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'ns-value', ttl: 120 }),
       });
@@ -762,7 +762,7 @@ describe('Cache API Routes', () => {
 
       // Set
       const setRes = await app.request(`/api/cache/${key}`, {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),
       });
@@ -795,7 +795,7 @@ describe('Cache API Routes', () => {
     it('should support lifecycle with TTL', async () => {
       // Set with TTL
       const setRes = await app.request('/api/cache/ttl-lifecycle', {
-        method: 'PUT',
+        method: "POST",
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 'expires', ttl: 60 }),
       });

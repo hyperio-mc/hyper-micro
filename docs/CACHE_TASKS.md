@@ -102,100 +102,39 @@
 
 ## Phase 2: Advanced Operations
 
-### Task 2.1: Pattern Matching
+### Task 2.1: Increment/Decrement
 
 **Priority**: High  
 **Dependencies**: Phase 1 complete
 
-#### Step 2.1.1: Implement glob-to-regex conversion
-- Add `globToRegex()` utility function
-- Implement `keys(pattern, options)` in CacheService
-- Support cursor-based pagination
-- **Output**: Updated `src/services/cache.ts`
-
-**Success Criteria**:
-- [ ] `globToRegex('*')` matches all keys
-- [ ] `globToRegex('user:*')` matches keys starting with 'user:'
-- [ ] `globToRegex('session:?:abc')` matches single char wildcard
-- [ ] Cursor pagination works correctly
-
-#### Step 2.1.2: Add keys endpoint
-- `POST /api/cache/keys` endpoint
-- Request: `{ pattern, limit?, cursor? }`
-- Response: `{ keys, cursor?, total }`
-- **Output**: Updated `src/routes/cache.ts`
-
-**Success Criteria**:
-- [ ] Pattern matching works
-- [ ] Limit parameter respected
-- [ ] Cursor returns next page
-
----
-
-### Task 2.2: Increment/Decrement
-
-**Priority**: High  
-**Dependencies**: Phase 1 complete
-
-#### Step 2.2.1: Implement atomic increment
-- Add `incr(key, by)` method to CacheService
+#### Step 2.1.1: Implement atomic increment/decrement
+- Add `incr(key, by)` and `decr(key, by)` methods to CacheService
 - Use LMDB transaction for atomicity
-- Handle non-numeric values (throw error)
 - Initialize to 0 if key doesn't exist
+- Return new value after operation
 - **Output**: Updated `src/services/cache.ts`
 
 **Success Criteria**:
 - [ ] `incr('counter', 1)` returns new value
-- [ ] `incr('counter', -1)` decrements
-- [ ] Non-numeric value throws `CACHE_NOT_A_NUMBER` error
-- [ ] Missing key initializes to 0 before increment
+- [ ] `decr('counter', 1)` decrements
+- [ ] Non-numeric value throws error
+- [ ] Missing key initializes to 0 before operation
 
-#### Step 2.2.2: Add incr endpoint
-- `POST /api/cache/incr/:key` endpoint
-- Request: `{ by? }` (default: 1)
+#### Step 2.1.2: Add increment/decrement endpoints
+- `POST /api/cache/:key/increment` - Increment value `{ by? }` (default: 1)
+- `POST /api/cache/:key/decrement` - Decrement value `{ by? }` (default: 1)
 - Response: `{ value }`
 - **Output**: Updated `src/routes/cache.ts`
 
 **Success Criteria**:
-- [ ] Endpoint works correctly
-- [ ] Default increment is 1
+- [ ] Increment works with default +1
+- [ ] Decrement works with default -1
+- [ ] Custom `by` value works
 - [ ] Error returned for non-numeric values
 
 ---
 
-### Task 2.3: Batch Operations
-
-**Priority**: Medium  
-**Dependencies**: Task 2.1, Task 2.2
-
-#### Step 2.3.1: Implement batch method
-- Add `batch(operations)` method to CacheService
-- Support: get, set, delete, has operations
-- Execute operations in order
-- Return results array in same order
-- **Output**: Updated `src/services/cache.ts`
-
-**Success Criteria**:
-- [ ] Batch get operations return values
-- [ ] Batch set operations store values
-- [ ] Batch delete operations return deletion status
-- [ ] Batch has operations return existence
-- [ ] Max 100 operations per batch (enforced)
-
-#### Step 2.3.2: Add batch endpoint
-- `POST /api/cache/batch` endpoint
-- Request: `{ operations: BatchOperation[] }`
-- Response: `{ results: BatchResult[] }`
-- **Output**: Updated `src/routes/cache.ts`
-
-**Success Criteria**:
-- [ ] Endpoint accepts batch operations
-- [ ] Results match input order
-- [ ] Size limit enforced
-
----
-
-## Phase 3: Integration
+## Phase 3: TTL & Health
 
 ### Task 3.1: TTL Endpoint
 
@@ -327,14 +266,13 @@ Post completion to this room when done. Run: npm test
 - [ ] Returns breakdown by namespace
 
 #### Step 4.1.2: Add cache admin list endpoint
-- `GET /api/admin/cache/keys?pattern=*&limit=100&namespace=` - List cache keys
-- Response: `{ ok: true, keys: Array<{ key, ttl, namespace, expiresAt }>, cursor?, total }`
+- `GET /api/admin/cache/keys?namespace=&limit=` - List cache keys
+- Response: `{ ok: true, keys: Array<{ key, ttl, namespace }>, total }`
 - **Output**: Updated `src/routes/admin.ts`
 
 **Success Criteria**:
-- [ ] Pattern filtering works
 - [ ] Namespace filtering works
-- [ ] Pagination with cursor works
+- [ ] Limit parameter works
 
 #### Step 4.1.3: Add cache admin delete endpoints
 - `DELETE /api/admin/cache/:key` - Delete single key
