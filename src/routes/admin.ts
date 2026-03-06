@@ -54,8 +54,10 @@ adminRoutes.get('/stats', async (c) => {
     let totalRecords = 0;
     for (const dbName of databases) {
       try {
-        const docs = await listDocuments(dbName, { limit: 10000 });
-        totalRecords += docs.length;
+        const result = await listDocuments(dbName, { count: true });
+        if ('count' in result) {
+          totalRecords += result.count;
+        }
       } catch {
         // Skip databases we can't read
       }
@@ -123,10 +125,10 @@ adminRoutes.get('/databases', async (c) => {
     
     for (const name of dbNames) {
       try {
-        const docs = await listDocuments(name, { limit: 10000 });
+        const result = await listDocuments(name, { count: true });
         databases.push({
           name,
-          keys: docs.length,
+          keys: 'count' in result ? result.count : null,
         });
       } catch {
         databases.push({
@@ -554,10 +556,10 @@ adminRoutes.get('/dbs', async (c) => {
     
     for (const name of dbNames) {
       try {
-        const docs = await listDocuments(name, { limit: 10000 });
+        const result = await listDocuments(name, { count: true });
         databases.push({
           name,
-          keys: docs.length,
+          keys: 'count' in result ? result.count : null,
         });
       } catch {
         databases.push({
@@ -597,12 +599,12 @@ adminRoutes.get('/dbs/:name', async (c) => {
       }, 404);
     }
     
-    const docs = await listDocuments(name, { limit: 10000 });
+    const result = await listDocuments(name, { count: true });
     
     return c.json({
       ok: true,
       name,
-      keys: docs.length,
+      keys: 'count' in result ? result.count : 0,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to get database info';

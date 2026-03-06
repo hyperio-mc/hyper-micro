@@ -148,9 +148,9 @@ describe('TtlManager', () => {
       expect(expired).toBe(true);
     });
 
-    it('should return false for keys without TTL entry', async () => {
+    it('should return true for keys without TTL entry (treated as expired)', async () => {
       const expired = await ttlManager.isExpired('no-ttl-key');
-      expect(expired).toBe(false);
+      expect(expired).toBe(true);
     });
 
     it('should respect namespace when checking expiration', async () => {

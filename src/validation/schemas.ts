@@ -93,13 +93,28 @@ export const docKeyParamSchema = z.object({
 });
 
 /**
- * Schema for list documents query parameters
+ * Schema for list documents query parameters (GET endpoint)
  */
 export const listDocsQuerySchema = z.object({
   startKey: z.string().optional(),
   endKey: z.string().optional(),
   limit: limitSchema.optional(),
   prefix: z.string().optional()
+});
+
+/**
+ * Schema for query documents request body (POST endpoint)
+ * Supports advanced query options including reverse, count, keysOnly, and offset
+ */
+export const queryDocsBodySchema = z.object({
+  startKey: z.string().optional(),
+  endKey: z.string().optional(),
+  limit: limitSchema.optional(),
+  prefix: z.string().optional(),
+  reverse: z.boolean().optional(),
+  count: z.boolean().optional(),
+  keysOnly: z.boolean().optional(),
+  offset: z.number().int('Offset must be an integer').min(0, 'Offset must be non-negative').optional()
 });
 
 // ============================================

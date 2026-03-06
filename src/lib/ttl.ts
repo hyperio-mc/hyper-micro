@@ -117,15 +117,17 @@ export class TtlManager {
    * 
    * @param key - The key to check
    * @param namespace - Optional namespace for the key
-   * @returns Promise resolving to true if the key has a TTL entry and it has expired,
-   *          false otherwise (including if no TTL entry exists)
+   * @returns Promise resolving to true if:
+   *   - The key has a TTL entry and it has expired
+   *   - The key has no TTL entry (non-existent keys are treated as expired)
+   *   Returns false only if the key has a valid (unexpired) TTL entry.
    */
   async isExpired(key: string, namespace?: string): Promise<boolean> {
     const storageKey = namespace ? `${namespace}:${key}` : key;
     const entry = await this.ttlDb.get(storageKey);
 
     if (!entry) {
-      return false; // No TTL entry means not expired
+      return true; // No TTL entry means key doesn't exist or has no TTL - treat as expired
     }
 
     return Date.now() >= entry.expiresAt;

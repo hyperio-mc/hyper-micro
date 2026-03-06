@@ -62,6 +62,14 @@ export interface QueryOptions {
   limit?: number;
   /** Filter documents by key prefix */
   prefix?: string;
+  /** Return results in reverse order (descending) */
+  reverse?: boolean;
+  /** Return only the count of matching documents */
+  count?: boolean;
+  /** Return only keys without values */
+  keysOnly?: boolean;
+  /** Number of documents to skip (for pagination) */
+  offset?: number;
 }
 
 /** Root LMDB database instance */
@@ -421,7 +429,7 @@ export async function deleteDocument(dbName: string, key: string): Promise<void>
 
 /**
  * Lists documents from the specified database with optional filtering.
- * Supports range queries, prefix filtering, and pagination.
+ * Supports range queries, prefix filtering, pagination, and advanced query options.
  * 
  * @param dbName - Name of the database
  * @param options - Query options
@@ -429,7 +437,11 @@ export async function deleteDocument(dbName: string, key: string): Promise<void>
  * @param options.endKey - End key for range query (exclusive)
  * @param options.limit - Maximum number of documents to return (default: 1000, max: 10000)
  * @param options.prefix - Filter by key prefix
- * @returns Promise resolving to an array of documents
+ * @param options.reverse - Return results in reverse order (descending)
+ * @param options.count - Return only the count of matching documents (returns count property)
+ * @param options.keysOnly - Return only keys without values
+ * @param options.offset - Number of documents to skip (for pagination)
+ * @returns Promise resolving to an array of documents, or count object if count is true
  * 
  * @example
  * ```typescript
@@ -445,9 +457,21 @@ export async function deleteDocument(dbName: string, key: string): Promise<void>
  *   startKey: page1[page1.length - 1].key,
  *   limit: 10 
  * });
+ * 
+ * // Reverse order
+ * const recentDocs = await listDocuments('logs', { reverse: true, limit: 10 });
+ * 
+ * // Count only
+ * const { count } = await listDocuments('users', { count: true, prefix: 'active:' });
+ * 
+ * // Keys only (efficient for large values)
+ * const keys = await listDocuments('cache', { keysOnly: true });
+ * 
+ * // Pagination with offset
+ * const page2 = await listDocuments('users', { limit: 10, offset: 10 });
  * ```
  */
-export async function listDocuments(dbName: string, options: QueryOptions = {}): Promise<Document[]> {
+export async function listDocuments(dbName: string, options: QueryOptions = {}): Promise<Document[] | { count: number }> {
   const db = getDb(dbName);
   const docs: Document[] = [];
   
@@ -455,7 +479,11 @@ export async function listDocuments(dbName: string, options: QueryOptions = {}):
     startKey,
     endKey,
     limit = 1000,
-    prefix
+    prefix,
+    reverse = false,
+    count = false,
+    keysOnly = false,
+    offset = 0
   } = options;
 
   // Build the range options
@@ -471,9 +499,11 @@ export async function listDocuments(dbName: string, options: QueryOptions = {}):
     end = endKey;
   }
 
-  const rangeOptions: any = {
-    limit,
-  };
+  // When counting, we need to iterate through all matching items
+  // We don't apply limit for counting (but we still need to handle offset)
+  const effectiveLimit = count ? undefined : limit;
+
+  const rangeOptions: any = {};
   
   if (start !== undefined) {
     rangeOptions.start = start;
@@ -481,14 +511,47 @@ export async function listDocuments(dbName: string, options: QueryOptions = {}):
   if (end !== undefined) {
     rangeOptions.end = end;
   }
+  if (effectiveLimit !== undefined) {
+    rangeOptions.limit = effectiveLimit + offset; // Request more to accommodate offset
+  }
+  if (reverse) {
+    rangeOptions.reverse = true;
+  }
+
+  let skipped = 0;
+  let totalCount = 0;
 
   // Iterate through the database
   for await (const { key, value } of db.getRange(rangeOptions)) {
-    docs.push({ key: String(key), value });
+    totalCount++;
     
-    if (docs.length >= limit) {
+    // Skip offset items
+    if (skipped < offset) {
+      skipped++;
+      continue;
+    }
+    
+    // For count mode, just continue counting
+    if (count) {
+      continue;
+    }
+    
+    // For keysOnly, don't include the value
+    const doc: Document = keysOnly 
+      ? { key: String(key), value: undefined }
+      : { key: String(key), value };
+    
+    docs.push(doc);
+    
+    // Check limit (accounting for offset)
+    if (!count && docs.length >= limit) {
       break;
     }
+  }
+
+  // Return count if requested
+  if (count) {
+    return { count: totalCount };
   }
 
   return docs;

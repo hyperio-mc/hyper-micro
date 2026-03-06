@@ -49,10 +49,49 @@
       "status": "open",
       "created": "2026-02-20T18:55:00-05:00",
       "reference": "docs/CODE_REVIEW.md - High Severity Issue #5"
+    },
+    {
+      "id": "task-006",
+      "title": "Add /.well-known/skill.md endpoint for hyper-micro",
+      "description": "Add a GET /.well-known/skill.md endpoint that serves the hyper-micro skill documentation. This allows agents/developers to discover the project's capabilities and conventions programmatically.",
+      "priority": "medium",
+      "category": "Feature",
+      "status": "complete",
+      "created": "2026-02-23T16:00:00-05:00",
+      "completed": "2026-02-23T21:36:00-05:00",
+      "successCriteria": [
+        "GET /.well-known/skill.md returns skill documentation",
+        "Content-type: text/markdown",
+        "Skill documentation describes hyper-micro capabilities, API endpoints, and usage"
+      ],
+      "notes": "Endpoint already implemented in src/server/index.ts reading from SKILL.md. SKILL.md contains comprehensive documentation covering all API endpoints (data, storage, auth, admin), authentication, configuration, and usage examples."
+    },
+    {
+      "id": "task-007",
+      "title": "Add enhanced query endpoint for database documents",
+      "description": "Add a dedicated POST /api/dbs/:db/query endpoint for advanced range queries with additional options: reverse order (descending), count-only mode, key-only mode (no values), and value-based filtering. The current GET /api/dbs/:db/docs supports basic range queries with startKey/endKey/limit/prefix, but lacks advanced query features.",
+      "priority": "medium",
+      "category": "Feature",
+      "status": "complete",
+      "created": "2026-02-23T21:54:51Z",
+      "completed": "2026-02-23T21:18:00-05:00",
+      "successCriteria": [
+        "POST /api/dbs/:db/query endpoint accepting JSON body",
+        "Support reverse: boolean for descending order",
+        "Support count: boolean to return only document count",
+        "Support keysOnly: boolean to return keys without values",
+        "Support startKey/endKey for range queries (inclusive/exclusive)",
+        "Support prefix for key prefix filtering",
+        "Support limit and offset for pagination",
+        "Optional: support valueFilter for basic value matching (e.g., field equality)",
+        "Maintain backward compatibility with existing GET /api/dbs/:db/docs endpoint"
+      ],
+      "reference": "Current listDocuments() in src/db/index.ts supports startKey/endKey/limit/prefix",
+      "notes": "LMDB getRange() supports reverse order natively via rangeOptions.reverse. Consider adding batch query support for multiple ranges in single request."
     }
   ],
   "metadata": {
-    "lastUpdated": "2026-02-20T18:55:00-05:00",
+    "lastUpdated": "2026-02-23T21:36:00-05:00",
     "reviewReference": "docs/CODE_REVIEW.md"
   }
 }

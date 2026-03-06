@@ -51,7 +51,8 @@ import {
   documentKeySchema,
   createDocBodySchema,
   updateDocBodySchema,
-  limitSchema
+  limitSchema,
+  queryDocsBodySchema
 } from '../validation/schemas.js';
 
 /** Hono router for data API endpoints */
@@ -556,6 +557,120 @@ dataApi.get('/dbs/:db/docs', async (c) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to list documents';
+    return c.json({
+      ok: false,
+      error: message
+    }, 500);
+  }
+});
+
+/**
+ * Advanced query endpoint for database documents.
+ * Supports reverse order, count-only mode, keys-only mode, and pagination with offset.
+ * 
+ * @route POST /api/dbs/:db/query
+ * @param {string} db - Database name (URL parameter)
+ * @body {Object} query - Query options
+ * @body {string} [startKey] - Start key for range query (inclusive)
+ * @body {string} [endKey] - End key for range query (exclusive)
+ * @body {number} [limit] - Max documents to return (default: 1000, max: 10000)
+ * @body {string} [prefix] - Filter by key prefix
+ * @body {boolean} [reverse] - Return results in reverse order (descending)
+ * @body {boolean} [count] - Return only the count of matching documents
+ * @body {boolean} [keysOnly] - Return only keys without values
+ * @body {number} [offset] - Number of documents to skip (for pagination)
+ * @returns {Object} 200 - { ok: true, docs: Array<{key: string, value: any}> } or { ok: true, count: number }
+ * @auth Bearer token required
+ * 
+ * @example
+ * ```bash
+ * # Query with reverse order
+ * curl -X POST http://localhost:3000/api/dbs/logs/query \
+ *   -H "Authorization: Bearer your-api-key" \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"reverse": true, "limit": 10}'
+ * 
+ * # Count documents with prefix
+ * curl -X POST http://localhost:3000/api/dbs/users/query \
+ *   -H "Authorization: Bearer your-api-key" \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"count": true, "prefix": "active:"}'
+ * 
+ * # Paginate with offset
+ * curl -X POST http://localhost:3000/api/dbs/users/query \
+ *   -H "Authorization: Bearer your-api-key" \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"limit": 10, "offset": 20}'
+ * 
+ * # Keys only (efficient for large values)
+ * curl -X POST http://localhost:3000/api/dbs/cache/query \
+ *   -H "Authorization: Bearer your-api-key" \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"keysOnly": true, "prefix": "session:"}'
+ * ```
+ */
+dataApi.post('/dbs/:db/query', async (c) => {
+  try {
+    const dbName = c.req.param('db');
+    
+    // Validate database name with Zod
+    const dbValidation = safeValidate(resourceNameSchema, dbName);
+    if (!dbValidation.success) {
+      return c.json({
+        ok: false,
+        error: dbValidation.error
+      }, 400);
+    }
+    
+    // Parse request body
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({
+        ok: false,
+        error: 'Invalid JSON body'
+      }, 400);
+    }
+    
+    // Validate body with Zod (allow empty object for defaults)
+    const bodyValidation = safeValidate(queryDocsBodySchema, body || {});
+    if (!bodyValidation.success) {
+      return c.json({
+        ok: false,
+        error: bodyValidation.error
+      }, 400);
+    }
+    
+    const { startKey, endKey, limit, prefix, reverse, count, keysOnly, offset } = bodyValidation.data;
+    
+    // Query documents
+    const result = await listDocuments(dbName, {
+      startKey,
+      endKey,
+      limit,
+      prefix,
+      reverse,
+      count,
+      keysOnly,
+      offset
+    });
+    
+    // Return count-only response
+    if (count && 'count' in result) {
+      return c.json({
+        ok: true,
+        count: result.count
+      });
+    }
+    
+    // Return documents
+    return c.json({
+      ok: true,
+      docs: result
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to query documents';
     return c.json({
       ok: false,
       error: message

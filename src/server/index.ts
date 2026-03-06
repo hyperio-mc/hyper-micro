@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { z } from 'zod';
@@ -169,6 +169,36 @@ export function createApp(): Hono {
       version: '1.0.0',
       adminAuth: adminAuthConfigured ? 'configured' : 'not configured',
     });
+  });
+
+  // Skill documentation endpoint - serves SKILL.md for AI agents
+  app.get('/.well-known/skill.md', (c) => {
+    // Try to read SKILL.md from the project root
+    // In development: ../SKILL.md relative to dist/server/
+    // In production: same location or use LMDB_PATH parent
+    const possiblePaths = [
+      join(__dirname, '../../SKILL.md'),  // development: dist/server/../../SKILL.md
+      join(process.cwd(), 'SKILL.md'),    // production: cwd/SKILL.md
+    ];
+
+    for (const skillPath of possiblePaths) {
+      if (existsSync(skillPath)) {
+        try {
+          const content = readFileSync(skillPath, 'utf-8');
+          return c.text(content, 200, {
+            'Content-Type': 'text/markdown; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600',
+          });
+        } catch (err) {
+          console.error('Error reading SKILL.md:', err);
+        }
+      }
+    }
+
+    return c.json({
+      ok: false,
+      error: 'Skill documentation not found',
+    }, 404);
   });
 
   // Landing page - serve HTML template
