@@ -193,6 +193,49 @@ export class CacheService {
     const value = await this.db.get(storageKey);
     return value !== undefined;
   }
+
+  /**
+   * Gets the remaining TTL for a key in seconds.
+   *
+   * @param key - The key to check
+   * @param namespace - Optional namespace for the key
+   * @returns Promise resolving to:
+   *   - Remaining TTL in seconds (> 0)
+   *   - -1 if no TTL is set (permanent entry)
+   *   - -2 if key does not exist or has expired
+   *
+   * @example
+   * ```typescript
+   * const ttl = await cache.getTtl('session:abc');
+   * if (ttl > 0) {
+   *   console.log(`Expires in ${ttl} seconds`);
+   * } else if (ttl === -1) {
+   *   console.log('Permanent entry (no TTL)');
+   * } else {
+   *   console.log('Key not found or expired');
+   * }
+   * ```
+   */
+  async getTtl(key: string, namespace?: string): Promise<number> {
+    // Check if key exists first
+    const exists = await this.has(key, namespace);
+    if (!exists) {
+      return -2;
+    }
+
+    // Get TTL info
+    const ttlRemaining = await this.ttl.getTtl(key, namespace);
+
+    // TTLManager returns:
+    // - -1 for expired
+    // - -2 for no TTL set
+    // - positive number for remaining seconds
+    if (ttlRemaining === -2) {
+      return -1; // No TTL set (permanent)
+    }
+
+    return ttlRemaining;
+  }
 }
 
 // Singleton instance

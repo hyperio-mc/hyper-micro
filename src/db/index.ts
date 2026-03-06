@@ -144,6 +144,26 @@ export async function shutdownLmdb(): Promise<void> {
 }
 
 /**
+ * Gets the root LMDB database instance.
+ * Used by services that need direct access to the database.
+ *
+ * @returns The root database instance
+ * @throws Error if LMDB has not been initialized
+ *
+ * @example
+ * ```typescript
+ * const rootDb = getRootDb();
+ * const subDb = rootDb.openDB({ name: 'custom' });
+ * ```
+ */
+export function getRootDb(): RootDatabase {
+  if (!rootDb) {
+    throw new Error('LMDB not initialized');
+  }
+  return rootDb;
+}
+
+/**
  * Gets or creates a database instance by name.
  * Internal function that caches database instances for performance.
  * 

@@ -7,13 +7,15 @@ import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { z } from 'zod';
-import { initializeLmdb } from '../db/index.js';
+import { initializeLmdb, getRootDb } from '../db/index.js';
 import { initializeStorage } from '../api/storage.js';
 import { dataApi, storageApi, authApi } from '../api/index.js';
 import { validateApiKey } from '../db/index.js';
 import { adminAuthMiddleware, isAdminAuthConfigured } from '../middleware/adminAuth.js';
 import { adminAuthRoutes } from '../routes/adminAuth.js';
 import { adminRoutes } from '../routes/admin.js';
+import { cacheRoutes } from '../routes/cache.js';
+import { initCacheService } from '../services/cache.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -247,6 +249,11 @@ export function createApp(): Hono {
   // Mount auth API (no auth required for creating API keys)
   app.route('/api/auth', authApi);
 
+  // Mount cache routes (requires API key auth)
+  app.route('/api/cache', cacheRoutes);
+
+  // Mount admin API routes (protected by adminAuthMiddleware)
+
   // Apply admin auth middleware to admin routes (must come before API key middleware)
   // Admin routes require JWT token from /api/login
   app.use('/api/admin/*', adminAuthMiddleware);
@@ -323,8 +330,13 @@ export async function startServer(app: Hono, config: EnvConfig) {
   await initializeStorage({
     path: config.STORAGE_PATH,
   });
-  console.log(`📂 Storage path: ${config.STORAGE_PATH}`);
-  
+  console.log('📂 Storage path: ' + config.STORAGE_PATH);
+
+  // Initialize Cache Service
+  console.log('💾 Initializing Cache Service...');
+  const rootDb = getRootDb();
+  initCacheService(rootDb);
+
   // Start server using @hono/node-server
   const server = serve({
     fetch: app.fetch,
